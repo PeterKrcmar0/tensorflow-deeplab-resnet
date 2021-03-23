@@ -109,16 +109,17 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, 
       Two tensors: the decoded image and its mask.
     """
 
-    img_contents = tf.read_file(input_queue[0])
-    label_contents = tf.read_file(input_queue[1])
+    img_contents = tf.io.read_file(input_queue[0])
+    label_contents = tf.io.read_file(input_queue[1])
     
-    img = tf.image.decode_jpeg(img_contents, channels=3)
+    # Also decodes png's.
+    img = tf.io.decode_jpeg(img_contents, channels=3)
     img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)
     img = tf.cast(tf.concat(axis=2, values=[img_b, img_g, img_r]), dtype=tf.float32)
     # Extract mean.
     img -= img_mean
 
-    label = tf.image.decode_png(label_contents, channels=1)
+    label = tf.io.decode_png(label_contents, channels=1)
 
     if input_size is not None:
         h, w = input_size
