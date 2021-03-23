@@ -1,7 +1,8 @@
 *.ckpt*
 output/
 snapshots_finetune/
-
+*.pb
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -69,7 +69,7 @@ class Network(object):
                         session.run(var.assign(data))
                     except ValueError:
                         if not ignore_missing:
-                            raise
+                            raise Exception(f"Missing layer: {param_name}")
 
     def feed(self, *args):
         '''Set the input(s) for the next operation by replacing the terminal nodes.

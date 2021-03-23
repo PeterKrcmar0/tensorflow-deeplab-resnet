@@ -17,7 +17,7 @@ from PIL import Image
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import DeepLabResNetModel, ImageReader, decode_labels, prepare_label
+from deeplab_resnet import cResNetModel, ImageReader, decode_labels, prepare_label, get_latent_space, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
     
@@ -60,29 +60,33 @@ def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
     
-    # Prepare image.
-    img = tf.image.decode_jpeg(tf.read_file(args.img_path), channels=3)
-    # Convert RGB to BGR.
-    img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)
-    img = tf.cast(tf.concat(axis=2, values=[img_b, img_g, img_r]), dtype=tf.float32)
-    # Extract mean.
-    img -= IMG_MEAN 
+    # Prepare latent space.
+    image = tf.image.decode_jpeg(tf.io.read_file(args.img_path), channels=3)
+    image = tf.expand_dims(image, 0)
+    image = tf.image.resize(image, (448,448))
     
-    # Create placeholder for data
-    # img_input = tf.placeholder(dtype=tf.uint8, shape=[480,640,3])
-    latent_repr = np.load(args.img_path)
-    print("////////////////////////////////////////////", latent_repr.shape)
-    data = tf.convert_to_tensor(latent_repr)
+    # Create session and model for compression
+    c_model = get_model_for_level(5)
+    #c_sess = tf.Session(graph=c_model.graph)
+
+    # Extract latent space
+    #latent_repr = get_latent_space(c_sess, c_model, image.eval(session=tf.Session()))
+    latent_repr = c_model(image)[0]
+    #data = tf.convert_to_tensor(latent_repr)
+    data = tf.cast(latent_repr, dtype=tf.float32)
+    print("-------------", latent_repr.shape)
 
     # Create network.
-    net = DeepLabResNetModel({'data': data}, is_training=False, num_classes=args.num_classes)
+    net = cResNetModel({'data': data}, is_training=False, num_classes=args.num_classes)
 
     # Which variables to load.
-    restore_var = [v for v in tf.global_variables() if 'conv1' not in v.name]
+    not_restore = [v for v in tf.global_variables() if 'correct_channels' in v.name] # original model doesn't contain weights for 'correct_channels' (TODO also remove the weights from next layers ???)
+    print(not_restore)
+    restore_var = [v for v in tf.global_variables() if v not in not_restore]
 
     # Predictions.
     raw_output = net.layers['fc1_voc12']
-    raw_output_up = tf.image.resize_bilinear(raw_output, (1024,1024)) # todo: get size of image from numpy array
+    raw_output_up = tf.image.resize_bilinear(raw_output, tf.shape(image)[1:3,])
     raw_output_up = tf.argmax(raw_output_up, dimension=3)
     pred = tf.expand_dims(raw_output_up, dim=3)
 
@@ -94,8 +98,6 @@ def main():
     init = tf.global_variables_initializer()
     
     sess.run(init)
-
-    print("\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\", restore_var)
     
     # Load weights.
     loader = tf.train.Saver(var_list=restore_var)
@@ -103,6 +105,8 @@ def main():
     
     # Perform inference.
     preds = sess.run(pred)
+
+    tf.train.write_graph(sess.graph, ".", "test.pb", as_text=False)
     
     msk = decode_labels(preds, num_classes=args.num_classes)
     im = Image.fromarray(msk[0])

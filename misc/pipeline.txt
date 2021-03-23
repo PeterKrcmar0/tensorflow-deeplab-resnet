@@ -1,0 +1,4 @@
+TRAINING:
+
+input img -> random crop and pad (square) -> random flip -> extract latent space -> feed to network
+
