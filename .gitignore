@@ -3,6 +3,8 @@ output/
 snapshots_finetune/
 *.pb
 logs/
+snapshots/
+dataset/VOC2012/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
