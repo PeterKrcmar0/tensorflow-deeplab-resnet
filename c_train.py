@@ -36,6 +36,7 @@ SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 1000
 SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
+LEVEL = 5
 
 
 def get_arguments():
@@ -85,6 +86,8 @@ def get_arguments():
                         help="Where to save snapshots of the model.")
     parser.add_argument("--weight-decay", type=float, default=WEIGHT_DECAY,
                         help="Regularisation parameter for L2-loss.")
+    parser.add_argument("--level", type=int, default=LEVEL,
+                        help="Level of the compression model (1 - 8).")
     return parser.parse_args()
 
 def save(saver, sess, logdir, step):
@@ -101,7 +104,7 @@ def save(saver, sess, logdir, step):
     
    if not os.path.exists(logdir):
       os.makedirs(logdir)
-   saver.save(sess, checkpoint_path, global_step=step)
+   saver.save(sess, checkpoint_path, global_step=step, write_meta_graph=step==0)
    print('The checkpoint has been created.')
 
 def load(saver, sess, ckpt_path):
@@ -126,6 +129,9 @@ def main():
     
     # Create queue coordinator.
     coord = tf.train.Coordinator()
+
+    # Create compression model.
+    compressor = get_model_for_level(args.level)
     
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -137,11 +143,13 @@ def main():
             args.random_mirror,
             args.ignore_label,
             IMG_MEAN,
-            coord)
+            coord,
+            True)
         image_batch, label_batch = reader.dequeue(args.batch_size)
+        latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
     
     # Create network.
-    net = cResNetModel({'data': image_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
     # For a small batch size, it is better to keep 
     # the statistics of the BN layers (running means and variances)
     # frozen, and to not update the values provided by the pre-trained model. 
@@ -183,7 +191,7 @@ def main():
     pred = tf.expand_dims(raw_output_up, dim=3)
     
     # Image summary.
-    images_summary = tf.py_func(inv_preprocess, [image_batch, args.save_num_images, IMG_MEAN], tf.uint8)
+    images_summary = image_batch[:args.save_num_images] # original images, should be uint8   #tf.py_func(inv_preprocess, [image_batch, args.save_num_images, IMG_MEAN], tf.uint8)
     labels_summary = tf.py_func(decode_labels, [label_batch, args.save_num_images, args.num_classes], tf.uint8)
     preds_summary = tf.py_func(decode_labels, [pred, args.save_num_images, args.num_classes], tf.uint8)
     

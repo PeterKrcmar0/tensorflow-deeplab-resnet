@@ -88,7 +88,7 @@ def save(saver, sess, logdir, step):
     if not os.path.exists(logdir):
         os.makedirs(logdir)
 
-    saver.save(sess, checkpoint_path, global_step=step)
+    saver.save(sess, checkpoint_path, global_step=step, write_meta_graph=step==0)
     print('The checkpoint has been created.')
 
 def load(saver, sess, ckpt_path):
@@ -128,11 +128,12 @@ def main():
             args.ignore_label,
             IMG_MEAN,
             coord,
-            compressor)
+            True) # latent
         image_batch, label_batch = reader.dequeue(args.batch_size)
+        latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
     
     # Create network.
-    net = cResNetModel({'data': image_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
     # For a small batch size, it is better to keep 
     # the statistics of the BN layers (running means and variances)
     # frozen, and to not update the values provided by the pre-trained model. 
@@ -165,12 +166,12 @@ def main():
     if args.save_num_images > args.batch_size:
         args.save_num_images = args.batch_size
         print(f'Number of images to save was larger than batch size, setting to {args.save_num_images}.')
-    #images_summary = tf.py_func(inv_preprocess, [image_batch, args.save_num_images, IMG_MEAN], tf.uint8) # don't save image, we don't have it, only latent repr TODO !!
+    images_summary = image_batch[:args.save_num_images] #tf.py_func(inv_preprocess, [image_batch, args.save_num_images, IMG_MEAN], tf.uint8) # don't save image, we don't have it, only latent repr TODO !!
     labels_summary = tf.py_func(decode_labels, [label_batch, args.save_num_images, args.num_classes], tf.uint8)
     preds_summary = tf.py_func(decode_labels, [pred, args.save_num_images, args.num_classes], tf.uint8)
     
     total_summary = tf.summary.image('images', 
-                                     tf.concat(axis=2, values=[labels_summary,preds_summary]), #values=[images_summary, labels_summary, preds_summary]), 
+                                     tf.concat(axis=2, values=[images_summary, labels_summary, preds_summary]), 
                                      max_outputs=args.save_num_images) # Concatenate row-wise.
     summary_writer = tf.summary.FileWriter(args.snapshot_dir,
                                            graph=tf.get_default_graph())
@@ -188,7 +189,7 @@ def main():
     sess.run(init)
     
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=40)
+    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=10)
     
     # Load variables if the checkpoint is provided.
     if args.restore_from is not None:
