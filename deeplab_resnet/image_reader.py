@@ -91,7 +91,7 @@ def read_labeled_image_list(data_dir, data_list):
         masks.append(data_dir + mask)
     return images, masks
 
-def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, ignore_label, img_mean): # optional pre-processing arguments
+def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, ignore_label, img_mean, compressor): # optional pre-processing arguments
     """Read one image and its corresponding mask with optional pre-processing.
     
     Args:
@@ -114,10 +114,17 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, 
     
     # Also decodes png's.
     img = tf.io.decode_jpeg(img_contents, channels=3)
-    img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)
-    img = tf.cast(tf.concat(axis=2, values=[img_b, img_g, img_r]), dtype=tf.float32)
-    # Extract mean.
-    img -= img_mean
+    
+    # If we're not compressing, convert to float and switch to BGR
+    if compressor is None:
+      img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)
+      img = tf.cast(tf.concat(axis=2, values=[img_b, img_g, img_r]), dtype=tf.float32)
+      # Extract mean.
+      img -= img_mean
+
+    # Otherwise, just convert to float (so that cropping and padding function is happy)
+    else:
+      img = tf.cast(img, dtype=tf.float32)
 
     label = tf.io.decode_png(label_contents, channels=1)
 
@@ -135,6 +142,14 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, 
         # Randomly crops the images and labels.
         img, label = random_crop_and_pad_image_and_labels(img, label, h, w, ignore_label)
 
+    # Compress preprocessed image to latent space
+    if compressor is not None:
+      img = tf.cast(img, dtype=tf.uint8)
+      img = tf.expand_dims(img, axis=0)
+      img = compressor(img)[0]
+      img = tf.squeeze(img)
+      img = tf.cast(img, dtype=tf.float32)
+
     return img, label
 
 class ImageReader(object):
@@ -143,7 +158,7 @@ class ImageReader(object):
     '''
 
     def __init__(self, data_dir, data_list, input_size, 
-                 random_scale, random_mirror, ignore_label, img_mean, coord):
+                 random_scale, random_mirror, ignore_label, img_mean, coord, compressor=None):
         '''Initialise an ImageReader.
         
         Args:
@@ -155,18 +170,20 @@ class ImageReader(object):
           ignore_label: index of label to ignore during the training.
           img_mean: vector of mean colour values.
           coord: TensorFlow queue coordinator.
+          compressor: GraphFunc of the compressor if we want to transform the images to their latent space representation, None otherwise
         '''
         self.data_dir = data_dir
         self.data_list = data_list
         self.input_size = input_size
         self.coord = coord
+        self.compressor = compressor
         
         self.image_list, self.label_list = read_labeled_image_list(self.data_dir, self.data_list)
         self.images = tf.convert_to_tensor(self.image_list, dtype=tf.string)
         self.labels = tf.convert_to_tensor(self.label_list, dtype=tf.string)
         self.queue = tf.train.slice_input_producer([self.images, self.labels],
                                                    shuffle=input_size is not None) # not shuffling if it is val
-        self.image, self.label = read_images_from_disk(self.queue, self.input_size, random_scale, random_mirror, ignore_label, img_mean) 
+        self.image, self.label = read_images_from_disk(self.queue, self.input_size, random_scale, random_mirror, ignore_label, img_mean, compressor) 
 
     def dequeue(self, num_elements):
         '''Pack images and labels into a batch.

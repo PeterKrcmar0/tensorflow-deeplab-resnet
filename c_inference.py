@@ -60,24 +60,22 @@ def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
     
-    # Prepare latent space.
+    # Prepare image so we can feed it to the compression module.
     image = tf.image.decode_jpeg(tf.io.read_file(args.img_path), channels=3)
     image = tf.expand_dims(image, 0)
     image = tf.image.resize(image, (448,448))
-    
-    # Create session and model for compression
+    image = tf.cast(image, tf.uint8)
+
+    # Get compression model.
     c_model = get_model_for_level(5)
-    #c_sess = tf.Session(graph=c_model.graph)
 
     # Extract latent space
-    #latent_repr = get_latent_space(c_sess, c_model, image.eval(session=tf.Session()))
     latent_repr = c_model(image)[0]
-    #data = tf.convert_to_tensor(latent_repr)
-    data = tf.cast(latent_repr, dtype=tf.float32)
+    latent_repr = tf.cast(latent_repr, dtype=tf.float32)
     print("-------------", latent_repr.shape)
 
     # Create network.
-    net = cResNetModel({'data': data}, is_training=False, num_classes=args.num_classes)
+    net = cResNetModel({'data': latent_repr}, is_training=False, num_classes=args.num_classes)
 
     # Which variables to load.
     not_restore = [v for v in tf.global_variables() if 'correct_channels' in v.name] # original model doesn't contain weights for 'correct_channels' (TODO also remove the weights from next layers ???)
@@ -106,7 +104,7 @@ def main():
     # Perform inference.
     preds = sess.run(pred)
 
-    tf.train.write_graph(sess.graph, ".", "test.pb", as_text=False)
+    # tf.train.write_graph(sess.graph, ".", "test.pb", as_text=False)
     
     msk = decode_labels(preds, num_classes=args.num_classes)
     im = Image.fromarray(msk[0])

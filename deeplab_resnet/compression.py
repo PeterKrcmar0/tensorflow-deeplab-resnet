@@ -44,7 +44,6 @@ def load_cached(filename):
         tf.io.gfile.makedirs(os.path.dirname(pathname))
         with tf.io.gfile.GFile(pathname, "wb") as f:
             f.write(string)
-        print(f"Model {filename} loaded")
     return string
 
 def get_graph(model):
@@ -75,6 +74,7 @@ def instantiate_model_signature(model, signature=None, inputs=None, outputs=None
         outputs = [graph.as_graph_element(outputs[k].name) for k in sorted(outputs)]
     else:
         outputs = [graph.as_graph_element(t) for t in outputs]
+    print(f"Created GraphFunc for model {model}.")
     return wrapped_import.prune(inputs, outputs)
 
 def get_model_for_level(level, inputs=["input_image:0"], outputs=["entropy_model/entropy_model_2/Cast:0"]):
