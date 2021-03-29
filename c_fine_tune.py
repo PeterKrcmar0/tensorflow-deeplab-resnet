@@ -22,13 +22,13 @@ from deeplab_resnet import cResNetModel, ImageReader, decode_labels, inv_preproc
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
 BATCH_SIZE = 4
-DATA_DIRECTORY = '/home/VOCdevkit'
+DATA_DIRECTORY = './VOC2012'
 DATA_LIST_PATH = './dataset/train.txt'
 IGNORE_LABEL = 255
-INPUT_SIZE = '321,321'
+INPUT_SIZE = '320,320'
 LEARNING_RATE = 1e-4
 NUM_CLASSES = 21
-NUM_STEPS = 20000
+NUM_STEPS = 20001
 RANDOM_SEED = 1234
 RESTORE_FROM = './deeplab_resnet_init.ckpt'
 SAVE_NUM_IMAGES = 2
@@ -147,7 +147,10 @@ def main():
     # thus all_variables() should be restored.
     # Restore all variables, or all except the last ones.
     restore_var = [v for v in tf.global_variables() if ('fc' not in v.name or not args.not_restore_last) and 'correct_channels' not in v.name]
-    trainable = [v for v in tf.trainable_variables() if 'fc1_voc12' in v.name] # Fine-tune only the last layers.
+    trainable = [v for v in tf.trainable_variables() if 'fc1_voc12' in v.name or 'correct_channels' in v.name] # Fine-tune only the last layers and the correction layers
+    print(trainable)
+
+    return
     
     prediction = tf.reshape(raw_output, [-1, args.num_classes])
     label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes)

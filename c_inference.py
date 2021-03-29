@@ -80,7 +80,7 @@ def main():
     # Which variables to load.
     not_restore = [v for v in tf.global_variables() if 'correct_channels' in v.name] # original model doesn't contain weights for 'correct_channels' (TODO also remove the weights from next layers ???)
     print(not_restore)
-    restore_var = [v for v in tf.global_variables() if v not in not_restore]
+    restore_var = tf.global_variables() # [v for v in tf.global_variables() if v not in not_restore]
 
     # Predictions.
     raw_output = net.layers['fc1_voc12']
