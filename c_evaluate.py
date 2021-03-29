@@ -15,7 +15,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import DeepLabResNetModel, ImageReader, prepare_label
+from deeplab_resnet import cResNetModel, ImageReader, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -26,6 +26,7 @@ NUM_CLASSES = 21
 NUM_STEPS = -1
 RESTORE_FROM = './deeplab_resnet.ckpt'
 SAVE_DIRECTORY = './output'
+LEVEL = 5
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -48,6 +49,8 @@ def get_arguments():
                         help="Where restore model parameters from.")
     parser.add_argument("--save-dir", type=str, default=SAVE_DIRECTORY,
                         help="Directory where to save miou value.")
+    parser.add_argument("--level", type=int, default=LEVEL,
+                        help="Level of the compression model (1 - 8).")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -68,6 +71,9 @@ def main():
     # Create queue coordinator.
     coord = tf.train.Coordinator()
 
+    # Create compression model.
+    compressor = get_model_for_level(args.level)
+
     # Load reader.
     with tf.name_scope("create_inputs"):
         reader = ImageReader(
@@ -78,12 +84,14 @@ def main():
             False, # No random mirror.
             args.ignore_label,
             IMG_MEAN,
-            coord)
+            coord, 
+            True)
         image, label = reader.image, reader.label
     image_batch, label_batch = tf.expand_dims(image, dim=0), tf.expand_dims(label, dim=0) # Add one batch dimension.
+    latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
 
     # Create network.
-    net = DeepLabResNetModel({'data': image_batch}, is_training=False, num_classes=args.num_classes)
+    net = DeepLabResNetModel({'data': latent_batch}, is_training=False, num_classes=args.num_classes)
 
     # Which variables to load.
     restore_var = tf.global_variables()

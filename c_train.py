@@ -16,7 +16,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import cResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label, get_latent_space, get_model_for_level
+from deeplab_resnet import cResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -31,7 +31,7 @@ NUM_CLASSES = 21
 NUM_STEPS = 20001
 POWER = 0.9
 RANDOM_SEED = 1234
-RESTORE_FROM = './deeplab_resnet_init.ckpt'
+RESTORE_FROM = None # './deeplab_resnet_init.ckpt'
 SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 1000
 SNAPSHOT_DIR = './snapshots/'
@@ -169,6 +169,9 @@ def main():
     fc_b_trainable = [v for v in fc_trainable if 'biases' in v.name] # lr * 20.0
     assert(len(all_trainable) == len(fc_trainable) + len(conv_trainable))
     assert(len(fc_trainable) == len(fc_w_trainable) + len(fc_b_trainable))
+
+    print([v.name for v in all_trainable])
+    return
     
     
     # Predictions: ignoring all predictions with labels greater or equal than n_classes
@@ -231,7 +234,7 @@ def main():
     sess.run(init)
     
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=10)
+    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=5)
     
     # Load variables if the checkpoint is provided.
     if args.restore_from is not None:

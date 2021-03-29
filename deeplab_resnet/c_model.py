@@ -62,11 +62,12 @@ class cResNetModel(Network):
 
         (self.feed('data')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels')
+             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels')
 
              .conv(1, 1, 512, 1, 1, biased=False, relu=False, name='res3a_branch1') # changing from 1,1,512,2,2
              .batch_normalization(is_training=is_training, activation_fn=None, name='bn3a_branch1'))
 
-        (self.feed('correct_channels')
+        (self.feed('bn_correct_channels')
         #(self.feed('res2c_relu')
              .conv(1, 1, 128, 1, 1, biased=False, relu=False, name='res3a_branch2a') # changing from 1,1,128,2,2
              .batch_normalization(is_training=is_training, activation_fn=tf.nn.relu, name='bn3a_branch2a')
