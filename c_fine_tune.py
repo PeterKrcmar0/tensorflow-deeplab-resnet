@@ -34,7 +34,8 @@ RESTORE_FROM = './deeplab_resnet_init.ckpt'
 SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 100
 SNAPSHOT_DIR = './snapshots_finetune/'
-LEVEL = 5
+LEVEL = 1
+MODEL = "cResNet"
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -79,6 +80,8 @@ def get_arguments():
                         help="Where to save snapshots of the model.")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
+    parser.add_argument("--model", type=str, default=MODEL,
+                        help="Which model to train (cResNet, cResNet39, resNet).")
     return parser.parse_args()
 
 def save(saver, sess, logdir, step):
@@ -133,7 +136,12 @@ def main():
         latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
     
     # Create network.
-    net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    if args.model == "cResNet":
+        net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39":
+        net = cResNet_39({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    else:
+        raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
     # For a small batch size, it is better to keep 
     # the statistics of the BN layers (running means and variances)
     # frozen, and to not update the values provided by the pre-trained model. 
@@ -149,8 +157,6 @@ def main():
     restore_var = [v for v in tf.global_variables() if ('fc' not in v.name or not args.not_restore_last) and 'correct_channels' not in v.name]
     trainable = [v for v in tf.trainable_variables() if 'fc1_voc12' in v.name or 'correct_channels' in v.name] # Fine-tune only the last layers and the correction layers
     print(trainable)
-
-    return
     
     prediction = tf.reshape(raw_output, [-1, args.num_classes])
     label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes)

@@ -23,6 +23,7 @@ IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
     
 NUM_CLASSES = 21
 SAVE_DIR = './output/'
+MODEL = "cResNet"
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -43,6 +44,8 @@ def get_arguments():
 
     parser.add_argument("--save-dir", type=str, default=SAVE_DIR,
                         help="Where to save predicted mask.")
+    parser.add_argument("--model", type=str, default=MODEL,
+                        help="Which model to train (cResNet, cResNet39, resNet).")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -63,7 +66,6 @@ def main():
     # Prepare image so we can feed it to the compression module.
     image = tf.image.decode_jpeg(tf.io.read_file(args.img_path), channels=3)
     image = tf.expand_dims(image, 0)
-    image = tf.image.resize(image, (448,448))
     image = tf.cast(image, tf.uint8)
 
     # Get compression model.
@@ -75,12 +77,15 @@ def main():
     print("-------------", latent_repr.shape)
 
     # Create network.
-    net = cResNetModel({'data': latent_repr}, is_training=False, num_classes=args.num_classes)
+    if args.model == "cResNet":
+        net = cResNetModel({'data': latent_repr}, is_training=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39":
+        net = cResNet_39({'data': latent_repr}, is_training=args.is_training, num_classes=args.num_classes)
+    else:
+        raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
 
     # Which variables to load.
-    not_restore = [v for v in tf.global_variables() if 'correct_channels' in v.name] # original model doesn't contain weights for 'correct_channels' (TODO also remove the weights from next layers ???)
-    print(not_restore)
-    restore_var = tf.global_variables() # [v for v in tf.global_variables() if v not in not_restore]
+    restore_var = tf.global_variables()
 
     # Predictions.
     raw_output = net.layers['fc1_voc12']

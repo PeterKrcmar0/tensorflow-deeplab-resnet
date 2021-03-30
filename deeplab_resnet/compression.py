@@ -77,10 +77,10 @@ def instantiate_model_signature(model, signature=None, inputs=None, outputs=None
     print(f"Created GraphFunc for model {model}.")
     return wrapped_import.prune(inputs, outputs)
 
-def get_model_for_level(level, inputs=["input_image:0"], outputs=["entropy_model/entropy_model_2/Cast:0"]):
-    return instantiate_model_signature(f"bmshj2018-hyperprior-msssim-{level}", inputs=inputs, outputs=outputs)
-
-def get_latent_space(sess, model, images):
-    """Gets the latent space of a batch of images, given a session constructed with model's graph.
-       Both the input images and the output latent space are numpy ndarrays."""
-    return sess.run(model.outputs[0].name, feed_dict={model.inputs[0].name: images})
+def get_model_for_level(level, latent=True):
+    """Get GraphFunc of the compression model for a given level.
+       If latent is true, the func outputs the latent representation, otherwise outputs the compressed image."""
+    if latent:
+        return instantiate_model_signature(f"bmshj2018-hyperprior-msssim-{level}", inputs=["input_image:0"], outputs=["entropy_model/entropy_model_2/Cast:0"])
+    else:
+        return instantiate_model_signature(f"bmshj2018-hyperprior-msssim-{level}", inputs=["input_image:0"], outputs=["GridAlign_1/strided_slice:0"])

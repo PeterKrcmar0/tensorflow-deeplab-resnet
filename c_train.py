@@ -16,7 +16,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import cResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label, get_model_for_level
+from deeplab_resnet import cResNetModel, cResNet_39, ImageReader, decode_labels, inv_preprocess, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -36,7 +36,8 @@ SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 1000
 SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
-LEVEL = 5
+LEVEL = 1
+MODEL = "cResNet"
 
 
 def get_arguments():
@@ -58,7 +59,7 @@ def get_arguments():
                         help="Comma-separated string with height and width of images.")
     parser.add_argument("--is-training", action="store_true",
                         help="Whether to updates the running means and variances during the training.")
-    parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE,
+    parser.add_argument("--lr", type=float, default=LEARNING_RATE,
                         help="Base learning rate for training with polynomial decay.")
     parser.add_argument("--momentum", type=float, default=MOMENTUM,
                         help="Momentum component of the optimiser.")
@@ -88,9 +89,11 @@ def get_arguments():
                         help="Regularisation parameter for L2-loss.")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
+    parser.add_argument("--model", type=str, default=MODEL,
+                        help="Which model to train (cResNet, cResNet39, resNet).")
     return parser.parse_args()
 
-def save(saver, sess, logdir, step):
+def save(saver, sess, logdir, step, model_name):
    '''Save weights.
    
    Args:
@@ -99,7 +102,7 @@ def save(saver, sess, logdir, step):
      logdir: path to the snapshots directory.
      step: current training step.
    '''
-   model_name = 'model.ckpt'
+   model_name = model_name #'model.ckpt'
    checkpoint_path = os.path.join(logdir, model_name)
     
    if not os.path.exists(logdir):
@@ -131,7 +134,7 @@ def main():
     coord = tf.train.Coordinator()
 
     # Create compression model.
-    compressor = get_model_for_level(args.level)
+    compressor = get_model_for_level(args.level, "cResNet" in args.model)
     
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -149,7 +152,12 @@ def main():
         latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
     
     # Create network.
-    net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    if args.model == "cResNet":
+        net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39":
+        net = cResNet_39({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    else:
+        raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
     # For a small batch size, it is better to keep 
     # the statistics of the BN layers (running means and variances)
     # frozen, and to not update the values provided by the pre-trained model. 
@@ -170,9 +178,6 @@ def main():
     assert(len(all_trainable) == len(fc_trainable) + len(conv_trainable))
     assert(len(fc_trainable) == len(fc_w_trainable) + len(fc_b_trainable))
 
-    print([v.name for v in all_trainable])
-    return
-    
     
     # Predictions: ignoring all predictions with labels greater or equal than n_classes
     raw_prediction = tf.reshape(raw_output, [-1, args.num_classes])
@@ -201,11 +206,12 @@ def main():
     total_summary = tf.summary.image('images', 
                                      tf.concat(axis=2, values=[images_summary, labels_summary, preds_summary]), 
                                      max_outputs=args.save_num_images) # Concatenate row-wise.
+    # loss_summary = tf.summary.Scalar('loss', loss)
     summary_writer = tf.summary.FileWriter(args.snapshot_dir,
                                            graph=tf.get_default_graph())
    
     # Define loss and optimisation parameters.
-    base_lr = tf.constant(args.learning_rate)
+    base_lr = tf.constant(args.lr)
     step_ph = tf.placeholder(dtype=tf.float32, shape=())
     learning_rate = tf.scalar_mul(base_lr, tf.pow((1 - step_ph / args.num_steps), args.power))
     
@@ -252,7 +258,7 @@ def main():
         if step % args.save_pred_every == 0:
             loss_value, images, labels, preds, summary, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, train_op], feed_dict=feed_dict)
             summary_writer.add_summary(summary, step)
-            save(saver, sess, args.snapshot_dir, step)
+            save(saver, sess, args.snapshot_dir, step, f'{args.model}-lvl{args.level}')
         else:
             loss_value, _ = sess.run([reduced_loss, train_op], feed_dict=feed_dict)
         duration = time.time() - start_time

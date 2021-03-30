@@ -26,7 +26,8 @@ NUM_CLASSES = 21
 NUM_STEPS = -1
 RESTORE_FROM = './deeplab_resnet.ckpt'
 SAVE_DIRECTORY = './output'
-LEVEL = 5
+LEVEL = 1
+MODEL = "cResNet"
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -51,6 +52,8 @@ def get_arguments():
                         help="Directory where to save miou value.")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
+    parser.add_argument("--model", type=str, default=MODEL,
+                        help="Which model to train (cResNet, cResNet39, resNet).")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -91,7 +94,12 @@ def main():
     latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
 
     # Create network.
-    net = DeepLabResNetModel({'data': latent_batch}, is_training=False, num_classes=args.num_classes)
+    if args.model == "cResNet":
+        net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39":
+        net = cResNet_39({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+    else:
+        raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
 
     # Which variables to load.
     restore_var = tf.global_variables()
