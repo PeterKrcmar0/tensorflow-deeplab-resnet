@@ -19,6 +19,11 @@ from deeplab_resnet import DeepLabResNetModel, ImageReader, prepare_label
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
+VOC_CLASSES = [
+    'background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
+    'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
+    'person', 'potted plant', 'sheep', 'sofa', 'train', 'tv/monitor']
+
 DATA_DIRECTORY = '/home/VOCdevkit'
 DATA_LIST_PATH = './dataset/val.txt'
 IGNORE_LABEL = 255
@@ -116,6 +121,15 @@ def main():
     if args.restore_from is not None:
         load(loader, sess, args.restore_from)
 
+    # Get confusion matrix.
+    confusion_matrix = tf.get_default_graph().get_tensor_by_name('mean_iou/total_confusion_matrix:0')
+
+    # Export
+    #summary_writer = tf.summary.FileWriter('logs', graph=tf.get_default_graph())
+    #summary_writer.add_summary(summary, step)
+    #saver = tf.train.Saver(var_list=tf.global_variables())
+    #saver.save(sess, './eval_test.ckpt', global_step=0, write_meta_graph=False)
+
     # Start queue threads.
     threads = tf.train.start_queue_runners(coord=coord, sess=sess)
 
@@ -132,6 +146,19 @@ def main():
     print('Mean IoU: {:.3f}'.format(miou_val))
     with open(f'{args.save_dir}/miou.txt', 'a') as f:
         f.write(f'{args.data_list} {miou_val}\n')
+
+    c = confusion_matrix.eval(session=sess)
+    # np.save(f'{args.save_dir}/confusion.npy', matrix)
+    #print(matrix)
+    TP = np.diag(c)
+    FP = c.sum(axis=0) - np.diag(c)  
+    FN = c.sum(axis=1) - np.diag(c)
+    IOU = TP / (TP + FP + FN)
+    np.save(f'{args.save_dir}/iou.npy', IOU)
+    our_miou = np.nanmean(IOU)
+    print('Our mean IoU: {:.3f}'.format(our_miou))
+    for i,(v,c) in enumerate(zip(list(IOU),VOC_CLASSES)):
+        print(f'IoU for class {i}: {v:.3f} ({c})')
 
     coord.request_stop()
     coord.join(threads)
