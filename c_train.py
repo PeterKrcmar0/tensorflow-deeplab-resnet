@@ -102,7 +102,7 @@ def save(saver, sess, logdir, step, model_name):
      logdir: path to the snapshots directory.
      step: current training step.
    '''
-   model_name = model_name #'model.ckpt'
+   model_name = model_name+'.ckpt' #'model.ckpt'
    checkpoint_path = os.path.join(logdir, model_name)
     
    if not os.path.exists(logdir):

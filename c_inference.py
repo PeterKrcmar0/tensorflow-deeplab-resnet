@@ -24,6 +24,7 @@ IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 NUM_CLASSES = 21
 SAVE_DIR = './output/'
 MODEL = "cResNet"
+LEVEL = 1
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -35,17 +36,16 @@ def get_arguments():
 
     parser.add_argument("img_path", type=str,
                         help="Path to the latent representation npy file.", default='./images/test_indoor2.jpg')
-
     parser.add_argument("model_weights", type=str,
                         help="Path to the file with model weights.", default='./deeplab_resnet.ckpt')
-
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
-
     parser.add_argument("--save-dir", type=str, default=SAVE_DIR,
                         help="Where to save predicted mask.")
     parser.add_argument("--model", type=str, default=MODEL,
                         help="Which model to train (cResNet, cResNet39, resNet).")
+    parser.add_argument("--level", type=int, default=LEVEL,
+                        help="Level of the compression model (1 - 8).")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -69,18 +69,17 @@ def main():
     image = tf.cast(image, tf.uint8)
 
     # Get compression model.
-    c_model = get_model_for_level(5)
+    c_model = get_model_for_level(args.level)
 
     # Extract latent space
     latent_repr = c_model(image)[0]
     latent_repr = tf.cast(latent_repr, dtype=tf.float32)
-    print("-------------", latent_repr.shape)
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_repr}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNetModel({'data': latent_repr}, is_training=False, num_classes=args.num_classes)
     elif args.model == "cResNet39":
-        net = cResNet_39({'data': latent_repr}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNet_39({'data': latent_repr}, is_training=False, num_classes=args.num_classes)
     else:
         raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
 

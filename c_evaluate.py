@@ -15,7 +15,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import cResNetModel, ImageReader, prepare_label, get_model_for_level
+from deeplab_resnet import cResNetModel, cResNet_39, ImageReader, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -95,9 +95,9 @@ def main():
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNetModel({'data': latent_batch}, is_training=False, num_classes=args.num_classes)
     elif args.model == "cResNet39":
-        net = cResNet_39({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNet_39({'data': latent_batch}, is_training=False, num_classes=args.num_classes)
     else:
         raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
 
