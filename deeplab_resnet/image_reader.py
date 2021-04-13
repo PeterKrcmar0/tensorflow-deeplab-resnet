@@ -1,5 +1,4 @@
 import os
-
 import numpy as np
 import tensorflow as tf
 
@@ -121,6 +120,7 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, 
       img = tf.cast(img, dtype=tf.uint8)
       img = compressor(img)[0]
       img = tf.squeeze(img)
+      img.set_shape((None, None, 3))
 
     # If we're not compressing, convert to float and switch to BGR
     if not latent:

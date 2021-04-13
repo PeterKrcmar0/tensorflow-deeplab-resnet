@@ -92,7 +92,7 @@ def main():
             False, # No random mirror.
             args.ignore_label,
             IMG_MEAN,
-            coord
+            coord,
             False,
             compressor)
         image, label = reader.image, reader.label
