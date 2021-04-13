@@ -154,6 +154,8 @@ def main():
             print('step {:d}'.format(step))
     miou_val = mIoU.eval(session=sess)
     print('Mean IoU: {:.3f}'.format(miou_val))
+    if not os.path.exists(args.save_dir):
+      os.makedirs(args.save_dir)
     with open(f'{args.save_dir}/miou.txt', 'a') as f:
         f.write(f'{args.data_list} {miou_val}\n')
 

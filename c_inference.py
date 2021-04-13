@@ -17,7 +17,7 @@ from PIL import Image
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import cResNetModel, ImageReader, decode_labels, prepare_label, get_latent_space, get_model_for_level
+from deeplab_resnet import cResNetModel, cResNet_39, ImageReader, decode_labels, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
     
