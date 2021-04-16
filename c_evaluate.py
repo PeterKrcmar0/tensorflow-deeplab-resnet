@@ -157,15 +157,15 @@ def main():
     if not os.path.exists(args.save_dir):
       os.makedirs(args.save_dir)
     with open(f'{args.save_dir}/miou.txt', 'a') as f:
-        f.write(f'{args.data_list} {miou_val}\n')
+        f.write(f'{args.restore_from} {miou_val}\n')
 
     # Get the per-class IoUs as well from the confusion matrix.
     c = confusion_matrix.eval(session=sess)
     TP = np.diag(c)
-    FP = c.sum(axis=0) - np.diag(c)  
+    FP = c.sum(axis=0) - np.diag(c)
     FN = c.sum(axis=1) - np.diag(c)
     IOU = TP / (TP + FP + FN)
-    np.save(f'{args.save_dir}/confusion_matrix.npy', c)
+    np.save(f'{args.save_dir}/confusion_matrix_{args.restore_from.split("/")[-1]}.npy', c)
     our_miou = np.nanmean(IOU)
     print('Our mean IoU: {:.3f}'.format(our_miou))
     for i,(v,c) in enumerate(zip(list(IOU),VOC_CLASSES)):

@@ -1,3 +1,5 @@
+VOC2012/
+
 *.ckpt*
 output/
 snapshots_finetune/

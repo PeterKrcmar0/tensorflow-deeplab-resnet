@@ -36,9 +36,10 @@ SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 1000
 SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
+ALPHA = 0.001
 LEVEL = 1
 MODEL = "cResNet"
-
+LEARNING = "poly"
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -91,6 +92,10 @@ def get_arguments():
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
                         help="Which model to train (cResNet, cResNet39, resNet).")
+    parser.add_argument("--lr-policy", type=str, default=LEARNING,
+                        help="How to adapt learning rate (poly, exp)")
+    parser.add_argument("--alpha", type=float, default=ALPHA,
+                        help="Alpha for exp learning rate policy")
     return parser.parse_args()
 
 def save(saver, sess, logdir, step, model_name):
@@ -170,6 +175,7 @@ def main():
     # Which variables to load. Running means and variances are not trainable,
     # thus all_variables() should be restored.
     restore_var = [v for v in tf.global_variables() if 'fc' not in v.name or not args.not_restore_last]
+    restore_var = [v for v in restore_var if 'correct_channels' not in v.name]
     all_trainable = [v for v in tf.trainable_variables() if 'beta' not in v.name and 'gamma' not in v.name]
     fc_trainable = [v for v in all_trainable if 'fc' in v.name]
     conv_trainable = [v for v in all_trainable if 'fc' not in v.name] # lr * 1.0
@@ -218,8 +224,10 @@ def main():
     # Define loss and optimisation parameters.
     base_lr = tf.constant(args.lr)
     step_ph = tf.placeholder(dtype=tf.float32, shape=())
-    learning_rate = tf.scalar_mul(base_lr, tf.pow((1 - step_ph / args.num_steps), args.power))
-    
+    if args.lr_policy == "poly":
+        learning_rate = tf.scalar_mul(base_lr, tf.pow((1 - step_ph / args.num_steps), args.power))
+    elif args.lr_policy == "exp":
+        learning_rate = tf.scalar_mul(base_lr, tf.pow(args.alpha, (step_ph / args.num_steps)))
     opt_conv = tf.train.MomentumOptimizer(learning_rate, args.momentum)
     opt_fc_w = tf.train.MomentumOptimizer(learning_rate * 10.0, args.momentum)
     opt_fc_b = tf.train.MomentumOptimizer(learning_rate * 20.0, args.momentum)
@@ -245,7 +253,7 @@ def main():
     sess.run(init)
     
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=5)
+    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=30)
     
     # Load variables if the checkpoint is provided.
     if args.restore_from is not None:
