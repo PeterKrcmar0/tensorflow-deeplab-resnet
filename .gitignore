@@ -1,5 +1,5 @@
 VOC2012/
-
+git_token
 *.ckpt*
 output/
 snapshots_finetune/

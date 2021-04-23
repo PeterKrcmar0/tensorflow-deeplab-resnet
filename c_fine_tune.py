@@ -17,7 +17,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import cResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label, get_model_for_level
+from deeplab_resnet import cResNet_39, cResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -56,7 +56,7 @@ def get_arguments():
                         help="Comma-separated string with height and width of images.")
     parser.add_argument("--is-training", action="store_true",
                         help="Whether to updates the running means and variances during the training.")
-    parser.add_argument("--learning-rate", type=float, default=LEARNING_RATE,
+    parser.add_argument("--lr", type=float, default=LEARNING_RATE,
                         help="Learning rate for training.")
     parser.add_argument("--not-restore-last", action="store_true",
                         help="Whether to not restore last (FC) layers.")
@@ -154,9 +154,9 @@ def main():
     # Which variables to load. Running means and variances are not trainable,
     # thus all_variables() should be restored.
     # Restore all variables, or all except the last ones.
-    restore_var = [v for v in tf.global_variables() if ('fc' not in v.name or not args.not_restore_last) and 'correct_channels' not in v.name]
-    trainable = [v for v in tf.trainable_variables() if 'fc1_voc12' in v.name or 'correct_channels' in v.name] # Fine-tune only the last layers and the correction layers
-    print(trainable)
+    restore_var = [v for v in tf.global_variables() if 'fc' not in v.name or not args.not_restore_last]
+    trainable = [v for v in tf.trainable_variables() if 'fc1_voc12' in v.name] # Fine-tune only the last layers
+    print(restore_var)
     
     prediction = tf.reshape(raw_output, [-1, args.num_classes])
     label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes)
@@ -182,11 +182,12 @@ def main():
     total_summary = tf.summary.image('images', 
                                      tf.concat(axis=2, values=[images_summary, labels_summary, preds_summary]), 
                                      max_outputs=args.save_num_images) # Concatenate row-wise.
+    loss_summary = tf.summary.scalar('loss', reduced_loss)
     summary_writer = tf.summary.FileWriter(args.snapshot_dir,
                                            graph=tf.get_default_graph())
    
     # Define loss and optimisation parameters.
-    optimiser = tf.train.AdamOptimizer(learning_rate=args.learning_rate)
+    optimiser = tf.train.AdamOptimizer(learning_rate=args.lr)
     optim = optimiser.minimize(reduced_loss, var_list=trainable)
     
     # Set up tf session and initialize variables. 
@@ -198,7 +199,7 @@ def main():
     sess.run(init)
     
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=5)
+    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=20)
     
     # Load variables if the checkpoint is provided.
     if args.restore_from is not None:
@@ -213,11 +214,13 @@ def main():
         start_time = time.time()
         
         if step % args.save_pred_every == 0:
-            loss_value, images, labels, preds, summary, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, optim])
+            loss_value, images, labels, preds, summary, summary2, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, optim])
             summary_writer.add_summary(summary, step)
+            summary_writer.add_summary(summary2, step)
             save(saver, sess, args.snapshot_dir, step)
         else:
-            loss_value, _ = sess.run([reduced_loss, optim])
+            loss_value, summary2, _ = sess.run([reduced_loss, loss_summary, optim])
+            summary_writer.add_summary(summary2, step)
         duration = time.time() - start_time
         print('step {:d} \t loss = {:.3f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
     coord.request_stop()
