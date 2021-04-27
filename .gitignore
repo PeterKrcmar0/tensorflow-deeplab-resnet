@@ -1,5 +1,5 @@
 VOC2012/
-
+git_token
 *.ckpt*
 output/
 snapshots_finetune/
@@ -7,6 +7,8 @@ snapshots_finetune/
 logs/
 snapshots/
 dataset/VOC2012/
+
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

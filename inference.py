@@ -16,12 +16,14 @@ from PIL import Image
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import DeepLabResNetModel, ImageReader, decode_labels, prepare_label
+from deeplab_resnet import DeepLabResNetModel, ImageReader, decode_labels, prepare_label, get_model_for_level
+from pathlib import Path
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
     
 NUM_CLASSES = 21
 SAVE_DIR = './output/'
+LEVEL = -1
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -33,15 +35,14 @@ def get_arguments():
 
     parser.add_argument("img_path", type=str,
                         help="Path to the RGB image file.", default='./images/test_indoor2.jpg')
-
     parser.add_argument("model_weights", type=str,
                         help="Path to the file with model weights.", default='./deeplab_resnet.ckpt')
-
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
-
     parser.add_argument("--save-dir", type=str, default=SAVE_DIR,
                         help="Where to save predicted mask.")
+    parser.add_argument("--level", type=int, default=LEVEL,
+                        help="Level of the compression model (1 - 8).")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -61,6 +62,15 @@ def main():
     
     # Prepare image.
     img = tf.image.decode_jpeg(tf.read_file(args.img_path), channels=3)
+
+    # Compress and reconstruct if requested.
+    if args.level > 0:
+        compressor = get_model_for_level(args.level, latent=False)
+        img = tf.cast(img, dtype=tf.uint8)
+        img = compressor(img)[0]
+        img = tf.squeeze(img)
+        #img.set_shape((None, None, 3))
+
     # Convert RGB to BGR.
     img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)
     img = tf.cast(tf.concat(axis=2, values=[img_b, img_g, img_r]), dtype=tf.float32)
@@ -99,9 +109,14 @@ def main():
     im = Image.fromarray(msk[0])
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
-    im.save(args.save_dir + 'mask.png')
+    output_file = args.save_dir + Path(args.img_path).stem
+    if args.level > 0:
+        output_file += f'_mask_r_{args.level}.png'
+    else:
+        output_file += '_mask.png'
+    im.save(output_file)
     
-    print('The output file has been saved to {}'.format(args.save_dir + 'mask.png'))
+    print(f'The output file has been saved to {output_file}')
 
     
 if __name__ == '__main__':
