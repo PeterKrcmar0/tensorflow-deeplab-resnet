@@ -175,7 +175,7 @@ def main():
     if args.save_num_images > args.batch_size:
         args.save_num_images = args.batch_size
         print(f'Number of images to save was larger than batch size, setting to {args.save_num_images}.')
-    images_summary = image_batch[:args.save_num_images] #tf.py_func(inv_preprocess, [image_batch, args.save_num_images, IMG_MEAN], tf.uint8) # don't save image, we don't have it, only latent repr TODO !!
+    images_summary = image_batch[:args.save_num_images] #tf.py_func(inv_preprocess, [image_batch, args.save_num_images, IMG_MEAN], tf.uint8)
     labels_summary = tf.py_func(decode_labels, [label_batch, args.save_num_images, args.num_classes], tf.uint8)
     preds_summary = tf.py_func(decode_labels, [pred, args.save_num_images, args.num_classes], tf.uint8)
     

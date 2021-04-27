@@ -40,6 +40,7 @@ ALPHA = 0.001
 LEVEL = 1
 MODEL = "cResNet"
 LEARNING = "poly"
+INCLUDE_HYPER = False
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -96,6 +97,8 @@ def get_arguments():
                         help="How to adapt learning rate (poly, exp)")
     parser.add_argument("--alpha", type=float, default=ALPHA,
                         help="Alpha for exp learning rate policy")
+    parser.add_argument("--include-hyper", action="store_true",
+                        help="If the hyper-prior should be included")
     return parser.parse_args()
 
 def save(saver, sess, logdir, step, model_name):
@@ -139,7 +142,7 @@ def main():
     coord = tf.train.Coordinator()
 
     # Create compression model.
-    compressor = get_model_for_level(args.level, "cResNet" in args.model)
+    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, include_hyperprior=args.include_hyper)
     
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -154,8 +157,15 @@ def main():
             coord,
             True)
         image_batch, label_batch = reader.dequeue(args.batch_size)
-        latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
+        if args.include_hyper:
+            latent_batch = tf.cast(compressor(image_batch), tf.float32)
+            latent_batch = tf.concat((latent_batch[0], latent_batch[1]), axis=-1)
+        else:
+            latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
     
+    print(latent_batch.shape)
+    return
+
     # Create network.
     if args.model == "cResNet":
         net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)

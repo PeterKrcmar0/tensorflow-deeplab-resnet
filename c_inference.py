@@ -107,14 +107,12 @@ def main():
     
     # Perform inference.
     preds = sess.run(pred)
-
-    # tf.train.write_graph(sess.graph, ".", "test.pb", as_text=False)
     
     msk = decode_labels(preds, num_classes=args.num_classes)
     im = Image.fromarray(msk[0])
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
-    output_file = args.save_dir + Path(args.img_path).stem + '_mask.png'
+    output_file = args.save_dir + Path(args.img_path).stem + '_mask_c_{args.level}.png'
     im.save(output_file)
     
     print('The output file has been saved to {}'.format(output_file))
