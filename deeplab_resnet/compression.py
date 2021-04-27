@@ -77,10 +77,15 @@ def instantiate_model_signature(model, signature=None, inputs=None, outputs=None
     print(f"Created GraphFunc for model {model}.")
     return wrapped_import.prune(inputs, outputs)
 
-def get_model_for_level(level, latent=True):
+def get_model_for_level(level, latent=True, include_hyperprior=False):
     """Get GraphFunc of the compression model for a given level.
-       If latent is true, the func outputs the latent representation, otherwise outputs the compressed image."""
+       If latent is true, the func outputs the latent representation, otherwise outputs the compressed image.
+       If include_hyperprior, the func returns both the latent space and the hyperprior."""
     if latent:
-        return instantiate_model_signature(f"bmshj2018-hyperprior-msssim-{level}", inputs=["input_image:0"], outputs=["entropy_model/entropy_model_2/Cast:0"])
+        outputs = ["entropy_model/entropy_model_2/Cast:0"]
+        if include_hyperprior:
+            outputs.append("GridAlign/strided_slice:0")
     else:
-        return instantiate_model_signature(f"bmshj2018-hyperprior-msssim-{level}", inputs=["input_image:0"], outputs=["GridAlign_1/strided_slice:0"])
+        outputs=["GridAlign_1/strided_slice:0"]
+    return instantiate_model_signature(f"bmshj2018-hyperprior-msssim-{level}", inputs=["input_image:0"], outputs=outputs) 
+        
