@@ -8,6 +8,8 @@ logs/
 snapshots/
 dataset/VOC2012/
 
+.vscode/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
