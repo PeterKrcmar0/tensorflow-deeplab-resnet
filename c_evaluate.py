@@ -59,6 +59,8 @@ def get_arguments():
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
                         help="Which model to train (cResNet, cResNet39, resNet).")
+    parser.add_argument("--include-hyper", action="store_true",
+                        help="If the hyper-prior should be included")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -80,7 +82,7 @@ def main():
     coord = tf.train.Coordinator()
 
     # Create compression model.
-    compressor = get_model_for_level(args.level)
+    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, include_hyperprior=args.include_hyper)
 
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -96,7 +98,13 @@ def main():
             True)
         image, label = reader.image, reader.label
     image_batch, label_batch = tf.expand_dims(image, dim=0), tf.expand_dims(label, dim=0) # Add one batch dimension.
-    latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
+
+    # Extract latent space.
+    if args.include_hyper:
+        latent_batch = tf.cast(compressor(image_batch), tf.float32)
+        latent_batch = tf.concat((latent_batch[0], latent_batch[1]), axis=-1)
+    else:
+        latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
 
     # Create network.
     if args.model == "cResNet":
