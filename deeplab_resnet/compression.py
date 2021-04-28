@@ -86,6 +86,5 @@ def get_model_for_level(level, latent=True, include_hyperprior=False):
         if include_hyperprior:
             outputs.append("GridAlign/strided_slice:0")
     else:
-        outputs=["GridAlign_1/strided_slice:0"]
-    return instantiate_model_signature(f"bmshj2018-hyperprior-msssim-{level}", inputs=["input_image:0"], outputs=outputs) 
-        
+        outputs = ["GridAlign_1/strided_slice:0"]
+    return instantiate_model_signature(f"bmshj2018-hyperprior-msssim-{level}", inputs=["input_image:0"], outputs=outputs)

@@ -40,7 +40,6 @@ ALPHA = 0.001
 LEVEL = 1
 MODEL = "cResNet"
 LEARNING = "poly"
-INCLUDE_HYPER = False
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -164,7 +163,6 @@ def main():
             latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
     
     print(latent_batch.shape)
-    return
 
     # Create network.
     if args.model == "cResNet":
