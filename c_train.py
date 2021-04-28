@@ -40,7 +40,6 @@ ALPHA = 0.001
 LEVEL = 1
 MODEL = "cResNet"
 LEARNING = "poly"
-INCLUDE_HYPER = False
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.

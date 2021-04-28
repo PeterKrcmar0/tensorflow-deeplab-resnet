@@ -46,6 +46,8 @@ def get_arguments():
                         help="Which model to train (cResNet, cResNet39, resNet).")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
+    parser.add_argument("--include-hyper", action="store_true",
+                        help="If the hyper-prior should be included")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -69,10 +71,14 @@ def main():
     image = tf.cast(image, tf.uint8)
 
     # Get compression model.
-    c_model = get_model_for_level(args.level)
+    compressor = get_model_for_level(args.level, latent=True, include_hyperprior=args.include_hyper)
 
     # Extract latent space
-    latent_repr = c_model(image)[0]
+    if args.include_hyper:
+        latent_repr = compressor(image)
+        latent_repr = tf.concat((latent_repr[0], latent_repr[1]), axis=-1)
+    else:
+        latent_repr = compressor(image)[0]
     latent_repr = tf.cast(latent_repr, dtype=tf.float32)
 
     # Create network.
