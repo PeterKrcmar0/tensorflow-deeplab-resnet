@@ -165,7 +165,7 @@ def main():
     elif args.model == "cResNet39":
         net = cResNet_39({'data': latent_batch[0]}, is_training=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet39-h":
-        net = cResNet_39({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNet_39_hyper({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, num_classes=args.num_classes)
     else:
         raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
     # For a small batch size, it is better to keep 
