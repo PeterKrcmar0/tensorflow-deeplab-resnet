@@ -16,7 +16,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import cResNetModel, cResNet_39, ImageReader, decode_labels, inv_preprocess, prepare_label, get_model_for_level
+from deeplab_resnet import * #cResNetModel, cResNet_39, ImageReader, decode_labels, inv_preprocess, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -91,7 +91,7 @@ def get_arguments():
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
-                        help="Which model to train (cResNet, cResNet39, resNet).")
+                        help="Which model to train (cResNet, cResNet39, cResNet39-h).")
     parser.add_argument("--lr-policy", type=str, default=LEARNING,
                         help="How to adapt learning rate (poly, exp)")
     parser.add_argument("--alpha", type=float, default=ALPHA,
@@ -141,7 +141,7 @@ def main():
     coord = tf.train.Coordinator()
 
     # Create compression model.
-    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, include_hyperprior=args.include_hyper)
+    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, include_hyperprior= "-h" in args.model)
     
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -156,21 +156,18 @@ def main():
             coord,
             True)
         image_batch, label_batch = reader.dequeue(args.batch_size)
-        if args.include_hyper:
-            latent_batch = tf.cast(compressor(image_batch), tf.float32)
-            latent_batch = tf.concat((latent_batch[0], latent_batch[1]), axis=-1)
-        else:
-            latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
-    
-    print(latent_batch.shape)
+
+    latent_batch = tf.cast(compressor(image_batch), tf.float32)
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNetModel({'data': latent_batch[0]}, is_training=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet39":
-        net = cResNet_39({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNet_39({'data': latent_batch[0]}, is_training=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39-h":
+        net = cResNet_39({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, num_classes=args.num_classes)
     else:
-        raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
+        raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
     # For a small batch size, it is better to keep 
     # the statistics of the BN layers (running means and variances)
     # frozen, and to not update the values provided by the pre-trained model. 
