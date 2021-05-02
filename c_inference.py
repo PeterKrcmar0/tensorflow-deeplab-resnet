@@ -43,7 +43,7 @@ def get_arguments():
     parser.add_argument("--save-dir", type=str, default=SAVE_DIR,
                         help="Where to save predicted mask.")
     parser.add_argument("--model", type=str, default=MODEL,
-                        help="Which model to train (cResNet, cResNet39, resNet).")
+                        help="Which model to train (cResNet, cResNet39, cReset39-h).")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--include-hyper", action="store_true",
@@ -71,23 +71,20 @@ def main():
     image = tf.cast(image, tf.uint8)
 
     # Get compression model.
-    compressor = get_model_for_level(args.level, latent=True, include_hyperprior=args.include_hyper)
+    compressor = get_model_for_level(args.level, latent=True, include_hyperprior= "-h" in args.model)
 
     # Extract latent space
-    if args.include_hyper:
-        latent_repr = compressor(image)
-        latent_repr = tf.concat((latent_repr[0], latent_repr[1]), axis=-1)
-    else:
-        latent_repr = compressor(image)[0]
-    latent_repr = tf.cast(latent_repr, dtype=tf.float32)
+    latent_batch = tf.cast(compressor(image_batch), tf.float32)
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_repr}, is_training=False, num_classes=args.num_classes)
+        net = cResNetModel({'data': latent_batch[0]}, is_training=False, num_classes=args.num_classes)
     elif args.model == "cResNet39":
-        net = cResNet_39({'data': latent_repr}, is_training=False, num_classes=args.num_classes)
+        net = cResNet_39({'data': latent_batch[0]}, is_training=False, num_classes=args.num_classes)
+    elif args.model == "cResNet39-h":
+        net = cResNet_39_hyper2({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=False, num_classes=args.num_classes)
     else:
-        raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
+        raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
 
     # Which variables to load.
     restore_var = tf.global_variables()
