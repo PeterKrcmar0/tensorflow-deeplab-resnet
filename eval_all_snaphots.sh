@@ -14,7 +14,7 @@ fi
 
 while IFS= read -r ckpt
 do
-python c_evaluate.py --model $model --level $level --restore-from $ckpt
+python c_evaluate.py --model $model --level $level --restore-from $ckpt --include-hyper
 done < tmp
 
 rm tmp

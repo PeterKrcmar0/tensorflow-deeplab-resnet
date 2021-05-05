@@ -15,7 +15,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import cResNetModel, cResNet_39, ImageReader, prepare_label, get_model_for_level
+from deeplab_resnet import * #cResNetModel, cResNet_39, ImageReader, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -108,7 +108,7 @@ def main():
     elif args.model == "cResNet39":
         net = cResNet_39({'data': latent_batch[0]}, is_training=False, num_classes=args.num_classes)
     elif args.model == "cResNet39-h":
-        net = cResNet_39_hyper2({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=False, num_classes=args.num_classes)
+        net = cResNet_39_hyper({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=False, num_classes=args.num_classes)
     else:
         raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
 
