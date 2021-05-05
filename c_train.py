@@ -164,8 +164,14 @@ def main():
         net = cResNetModel({'data': latent_batch[0]}, is_training=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet39":
         net = cResNet_39({'data': latent_batch[0]}, is_training=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet42":
+        net = cResNet_42({'data': latent_batch[0]}, is_training=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet39-h":
+        net = cResNet_39_hyper({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39-h2":
         net = cResNet_39_hyper2({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39-h3":
+        net = cResNet_39_hyper3({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, num_classes=args.num_classes)
     else:
         raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
     # For a small batch size, it is better to keep 
