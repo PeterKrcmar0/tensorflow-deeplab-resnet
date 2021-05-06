@@ -283,25 +283,41 @@ def main():
 
     # Iterate over training steps.
     #old_bnn = None
+
     for step in range(args.num_steps):
         start_time = time.time()
         feed_dict = { step_ph : step, is_training : step > args.freeze_steps }
         
-        if step % args.save_pred_every == 0:
-            if step > args.freeze_steps:
-                loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op_all], feed_dict=feed_dict)
-            else:
-                loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op_cc], feed_dict=feed_dict)
-            summary_writer.add_summary(loss_sum, step)
-            summary_writer.add_summary(summary, step)
-            save(saver, sess, args.snapshot_dir, step, f'{args.model}-lvl{args.level}')
+        if step > args.freeze_steps:
+            loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op_all], feed_dict=feed_dict)
         else:
-            if step > args.freeze_steps:
-                loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op_all], feed_dict=feed_dict)
-            else:
-                loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op_cc], feed_dict=feed_dict)
-            summary_writer.add_summary(loss_sum, step)
+            loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op_cc], feed_dict=feed_dict)
+        summary_writer.add_summary(loss_sum, step)
+
+        if step % args.save_pred_every == 0:
+            save(saver, sess, args.snapshot_dir, step, f'{args.model}-lvl{args.level}')
+        
         duration = time.time() - start_time
+
+    # for step in range(args.num_steps):
+    #     start_time = time.time()
+    #     feed_dict = { step_ph : step, is_training : step > args.freeze_steps }
+        
+    #     if step % args.save_pred_every == 0:
+    #         if step > args.freeze_steps:
+    #             loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op_all], feed_dict=feed_dict)
+    #         else:
+    #             loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op_cc], feed_dict=feed_dict)
+    #         summary_writer.add_summary(loss_sum, step)
+    #         summary_writer.add_summary(summary, step)
+    #         save(saver, sess, args.snapshot_dir, step, f'{args.model}-lvl{args.level}')
+    #     else:
+    #         if step > args.freeze_steps:
+    #             loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op_all], feed_dict=feed_dict)
+    #         else:
+    #             loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op_cc], feed_dict=feed_dict)
+    #         summary_writer.add_summary(loss_sum, step)
+    #     duration = time.time() - start_time
         #if old_bnn is not None:
         #    print(np.sum(old_bnn != bnn))
         #print(old_bnn)
