@@ -7,7 +7,7 @@ from kaffe.tensorflow import Network
 import tensorflow as tf
 
 class DeepLabResNetModel(Network):
-    def setup(self, is_training, num_classes):
+    def setup(self, is_training, is_training2, num_classes):
         '''Network definition.
         
         Args:

@@ -7,13 +7,14 @@ from kaffe.tensorflow import Network
 import tensorflow as tf
 
 class cResNetModel(Network):
-    def setup(self, is_training, num_classes):
+    def setup(self, is_training, is_training2, num_classes):
         '''Network definition.
         
         Args:
           is_training: whether to update the running mean and variance of the batch normalisation layer.
                        If the batch size is small, it is better to keep the running mean and variance of 
                        the-pretrained model frozen.
+          is_training2: same as before, but for the batchnorms of the correct_channels layers.
           num_classes: number of classes to predict (including background).
         '''
      #   (self.feed('data')
@@ -62,7 +63,7 @@ class cResNetModel(Network):
 
         (self.feed('data')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels')
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels')
 
              .conv(1, 1, 512, 1, 1, biased=False, relu=False, name='res3a_branch1') # changing from 1,1,512,2,2
              .batch_normalization(is_training=is_training, activation_fn=None, name='bn3a_branch1'))
@@ -436,11 +437,11 @@ class cResNetModel(Network):
 
 
 class cResNet_39(Network):
-    def setup(self, is_training, num_classes):
+    def setup(self, is_training, is_training2, num_classes):
 
         (self.feed('data')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels')
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels')
 
              .conv(1, 1, 512, 1, 1, biased=False, relu=False, name='res3a_branch1')
              .batch_normalization(is_training=is_training, activation_fn=None, name='bn3a_branch1'))
@@ -627,19 +628,19 @@ class cResNet_39(Network):
 
 
 class cResNet_42(Network):
-    def setup(self, is_training, num_classes):
+    def setup(self, is_training, is_training2, num_classes):
 
         (self.feed('data')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels_branch1')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_branch1'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_branch1'))
 
         (self.feed('data')
              .conv(1, 1, 64, 1, 1, biased=False, relu=False, name='correct_channels_branch2a')
-             .batch_normalization(is_training=is_training, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2a')
+             .batch_normalization(is_training=is_training2, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2a')
              .conv(3, 3, 64, 1, 1, biased=False, relu=False, name='correct_channels_branch2b')
-             .batch_normalization(is_training=is_training, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2b')
+             .batch_normalization(is_training=is_training2, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2b')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels_branch2c')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_branch2c'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_branch2c'))
 
         (self.feed('bn_correct_channels_branch1', 
                   'bn_correct_channels_branch2c')
@@ -832,7 +833,7 @@ class cResNet_42(Network):
 
 
 class cResNet_39_hyper(Network):
-    def setup(self, is_training, num_classes):
+    def setup(self, is_training, is_training2, num_classes):
 
          # in this case, we have two inputs: "y_hat" and "sigma_hat", both are batches of same dimensions
          # but since both do not contain the same information, we make them go through separate pipelines
@@ -840,17 +841,17 @@ class cResNet_39_hyper(Network):
          # we simply concatenate them before feeding them to the first res block
         (self.feed('y_hat')
              .conv(1, 1, 128, 1, 1, biased=False, relu=False, name='correct_channels_y')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_y'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_y'))
 
         (self.feed('sigma_hat')
              .conv(1, 1, 128, 1, 1, biased=False, relu=False, name='correct_channels_sigma')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_sigma'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_sigma'))
 
         (self.feed('bn_correct_channels_y',
                     'bn_correct_channels_sigma')
              .concat(axis=-1, name='conc_correct_channels')
              .conv(1, 1, 512, 1, 1, biased=False, relu=False, name='res3a_branch1')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn3a_branch1')) # todo: add 256 instead of concat ?
+             .batch_normalization(is_training=is_training, activation_fn=None, name='bn3a_branch1'))
 
         (self.feed('conc_correct_channels')
              .conv(1, 1, 128, 1, 1, biased=False, relu=False, name='res3a_branch2a')
@@ -1034,18 +1035,18 @@ class cResNet_39_hyper(Network):
 
 
 class cResNet_39_hyper2(Network):
-    def setup(self, is_training, num_classes):
+    def setup(self, is_training, is_training2, num_classes):
 
          # here we do conv + bn in two separate pipelines but we go to 256 channels for both y_hat and sigma_hat
          # instead of concatenating we do an add operation
 
         (self.feed('y_hat')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels_y')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_y'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_y'))
 
         (self.feed('sigma_hat')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels_sigma')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_sigma'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_sigma'))
 
         (self.feed('bn_correct_channels_y',
                     'bn_correct_channels_sigma')
@@ -1236,7 +1237,7 @@ class cResNet_39_hyper2(Network):
 
 
 class cResNet_39_hyper3(Network):
-    def setup(self, is_training, num_classes):
+    def setup(self, is_training, is_training2, num_classes):
 
          # here we add a residual block instead of a single convolution layer for both
          # y hat and sigma hat, then we concatenate together
@@ -1244,15 +1245,15 @@ class cResNet_39_hyper3(Network):
          # y hat res block
         (self.feed('y_hat')
              .conv(1, 1, 128, 1, 1, biased=False, relu=False, name='correct_channels_branch1_y')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_branch1_y'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_branch1_y'))
 
         (self.feed('y_hat')
              .conv(1, 1, 32, 1, 1, biased=False, relu=False, name='correct_channels_branch2a_y')
-             .batch_normalization(is_training=is_training, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2a_y')
+             .batch_normalization(is_training=is_training2, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2a_y')
              .conv(3, 3, 32, 1, 1, biased=False, relu=False, name='correct_channels_branch2b_y')
-             .batch_normalization(is_training=is_training, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2b_y')
+             .batch_normalization(is_training=is_training2, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2b_y')
              .conv(1, 1, 128, 1, 1, biased=False, relu=False, name='correct_channels_branch2c_y')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_branch2c_y'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_branch2c_y'))
              
         (self.feed('bn_correct_channels_branch1_y', 'bn_correct_channels_branch2c_y')
                 .add(name='correct_channels_res_y')
@@ -1261,15 +1262,15 @@ class cResNet_39_hyper3(Network):
           # sigma hat res block
         (self.feed('sigma_hat')
              .conv(1, 1, 128, 1, 1, biased=False, relu=False, name='correct_channels_branch1_sigma')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_branch1_sigma'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_branch1_sigma'))
 
         (self.feed('sigma_hat')
              .conv(1, 1, 32, 1, 1, biased=False, relu=False, name='correct_channels_branch2a_sigma')
-             .batch_normalization(is_training=is_training, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2a_sigma')
+             .batch_normalization(is_training=is_training2, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2a_sigma')
              .conv(3, 3, 32, 1, 1, biased=False, relu=False, name='correct_channels_branch2b_sigma')
-             .batch_normalization(is_training=is_training, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2b_sigma')
+             .batch_normalization(is_training=is_training2, activation_fn=tf.nn.relu, name='bn_correct_channels_branch2b_sigma')
              .conv(1, 1, 128, 1, 1, biased=False, relu=False, name='correct_channels_branch2c_sigma')
-             .batch_normalization(is_training=is_training, activation_fn=None, name='bn_correct_channels_branch2c_sigma'))
+             .batch_normalization(is_training=is_training2, activation_fn=None, name='bn_correct_channels_branch2c_sigma'))
 
         (self.feed('bn_correct_channels_branch1_sigma', 'bn_correct_channels_branch2c_sigma')
                 .add(name='correct_channels_res_sigma')
