@@ -90,8 +90,10 @@ def get_arguments():
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
                         help="Which model to train (cResNet, cResNet39, cResNet39-h).")
-    parser.add_argument("--update-bn", action="store_true",
-                        help="If gamma and beta should be learned for the first layers")
+    parser.add_argument("--decay-lr", action="store_true",
+                        help="If learning rate should decay or by decremented by steps (defined by --lr-steps).")
+    parser.add_argument("--lr-steps", type=str,
+                        help="At what number of steps we divide lr by 10 (comma separated values).")
     return parser.parse_args()
 
 def save(saver, sess, logdir, step, model_name):
@@ -203,9 +205,7 @@ def main():
     reduced_loss = tf.reduce_mean(loss) + tf.add_n(l2_losses)
     
     # Loss summary.
-    pixel_loss_summary = tf.summary.scalar('pixel_loss', tf.reduce_mean(loss))
-    total_loss_summary = tf.summary.scalar('total_loss', reduced_loss)
-    loss_summary = tf.summary.merge([pixel_loss_summary, total_loss_summary])
+    loss_summary = tf.summary.scalar('total_loss', reduced_loss)
 
     # Processed predictions: for visualisation.
     raw_output_up = tf.image.resize_bilinear(raw_output, tf.shape(image_batch)[1:3,])
@@ -227,11 +227,14 @@ def main():
     # Define loss and optimisation parameters.
     base_lr = tf.constant(args.lr)
     step_ph = tf.placeholder(dtype=tf.float32, shape=())
+    mult_factor = tf.placeholder(dtype=tf.float32, shape=())
     learning_rate = tf.scalar_mul(base_lr, tf.pow((1 - step_ph / args.num_steps), args.power))
-    
+    if args.lr_steps is not None:
+        learning_rate = tf.scalar_mul(base_lr, mult_factor)
+
     opt_big = tf.train.MomentumOptimizer(learning_rate, args.momentum)
-    opt_medium = tf.train.MomentumOptimizer(learning_rate * 0.01, args.momentum)
-    opt_small = tf.train.MomentumOptimizer(learning_rate * 0.0001, args.momentum)
+    opt_medium = tf.train.MomentumOptimizer(learning_rate * 0.01, args.momentum) # 100 times smaller
+    opt_small = tf.train.MomentumOptimizer(learning_rate * 0.0001, args.momentum) # 10'000 times smaller  #TODO: try with 10 and 100
 
     grads = tf.gradients(reduced_loss, big_lr_trainable + medium_lr_trainable + small_lr_trainable)
     grads_big = grads[:len(big_lr_trainable)]
@@ -263,10 +266,16 @@ def main():
     # Start queue threads.
     threads = tf.train.start_queue_runners(coord=coord, sess=sess)
 
+    lr_steps = args.lr_steps.split(",") if args.lr_steps is not None else []
+    lr_steps = [int(step) for step in lr_steps]
+    factor = 1.0
+
     # Iterate over training steps.
     for step in range(args.num_steps):
         start_time = time.time()
-        feed_dict = { step_ph : step }
+        if step in lr_steps:
+            factor *= 0.1
+        feed_dict = { step_ph : step, mult_factor: factor }
         
         if step % args.save_pred_every == 0:
             loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op], feed_dict=feed_dict)
@@ -274,7 +283,7 @@ def main():
             summary_writer.add_summary(summary, step)
             save(saver, sess, args.snapshot_dir, step, f'{args.model}-lvl{args.level}')
         else:
-            loss_value, loss_sum,  _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)
+            loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)
             summary_writer.add_summary(loss_sum, step)
         duration = time.time() - start_time
         print('step {:d} \t loss = {:.3f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
