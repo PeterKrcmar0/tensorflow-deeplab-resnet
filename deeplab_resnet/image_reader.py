@@ -90,7 +90,7 @@ def read_labeled_image_list(data_dir, data_list):
         masks.append(data_dir + mask)
     return images, masks
 
-def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, ignore_label, img_mean, latent, compressor): # optional pre-processing arguments
+def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, ignore_label, img_mean, latent, compressor, binary): # optional pre-processing arguments
     """Read one image and its corresponding mask with optional pre-processing.
     
     Args:
@@ -135,6 +135,11 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, 
 
     label = tf.io.decode_png(label_contents, channels=1)
 
+    if binary:
+        mask = tf.equal(label, ignore_label)
+        label = tf.clip_by_value(label, 0, 1)
+        label = tf.where_v2(mask, ignore_label, label)
+
     if input_size is not None:
         h, w = input_size
 
@@ -161,7 +166,8 @@ class ImageReader(object):
     '''
 
     def __init__(self, data_dir, data_list, input_size, 
-                 random_scale, random_mirror, ignore_label, img_mean, coord, latent=False, compressor=None):
+                 random_scale, random_mirror, ignore_label, img_mean, 
+                 coord, latent=False, compressor=None, binary=False):
         '''Initialise an ImageReader.
         
         Args:
@@ -182,13 +188,14 @@ class ImageReader(object):
         self.coord = coord
         self.latent = latent
         self.compressor = compressor
+        self.binary = binary
         
         self.image_list, self.label_list = read_labeled_image_list(self.data_dir, self.data_list)
         self.images = tf.convert_to_tensor(self.image_list, dtype=tf.string)
         self.labels = tf.convert_to_tensor(self.label_list, dtype=tf.string)
         self.queue = tf.train.slice_input_producer([self.images, self.labels],
                                                    shuffle=input_size is not None) # not shuffling if it is val
-        self.image, self.label = read_images_from_disk(self.queue, self.input_size, random_scale, random_mirror, ignore_label, img_mean, latent, compressor) 
+        self.image, self.label = read_images_from_disk(self.queue, self.input_size, random_scale, random_mirror, ignore_label, img_mean, latent, compressor, binary) 
 
     def dequeue(self, num_elements):
         '''Pack images and labels into a batch.

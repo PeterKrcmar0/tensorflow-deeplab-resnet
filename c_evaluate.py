@@ -104,7 +104,7 @@ def main():
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_batch[0]}, num_classes=args.num_classes)
+        net = cResNet_91({'data': latent_batch[0]}, num_classes=args.num_classes)
     elif args.model == "cResNet39":
         net = cResNet_39({'data': latent_batch[0]}, num_classes=args.num_classes)
     elif args.model == "cResNet42":

@@ -157,7 +157,7 @@ def main():
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_batch[0]}, is_training=is_training, is_training2=args.is_training, num_classes=args.num_classes)
+        net = cResNet_91({'data': latent_batch[0]}, is_training=is_training, is_training2=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet39":
         net = cResNet_39({'data': latent_batch[0]}, is_training=is_training, is_training2=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet42":
@@ -212,10 +212,8 @@ def main():
     reduced_loss = tf.reduce_mean(loss) + tf.add_n(l2_losses)
     
     # Loss summary.
-    pixel_loss_summary = tf.summary.scalar('pixel_loss', tf.reduce_mean(loss))
-    total_loss_summary = tf.summary.scalar('total_loss', reduced_loss)
-    loss_summary = tf.summary.merge([pixel_loss_summary, total_loss_summary])
-
+    loss_summary = tf.summary.scalar('loss', reduced_loss)
+    
     # Processed predictions: for visualisation.
     raw_output_up = tf.image.resize_bilinear(raw_output, tf.shape(image_batch)[1:3,])
     raw_output_up = tf.argmax(raw_output_up, dimension=3)
