@@ -188,7 +188,7 @@ def main():
 
     big_lr_trainable = [v for v in tf.trainable_variables() if 'correct_channels' in v.name] # layers we added, so correct_channels (includes betas and gammas)
     medium_lr_trainable = [v for v in tf.trainable_variables() if 'fc' in v.name] # decision layers, so fc
-    small_lr_trainable = [v for v in tf.all_trainable if v not in big_lr_trainable and v not in medium_lr_trainable] # pretrained weights, so rest of variables that aren't in other sets (doesn't include betas and gammas)
+    small_lr_trainable = [v for v in all_trainable if v not in big_lr_trainable and v not in medium_lr_trainable] # pretrained weights, so rest of variables that aren't in other sets (doesn't include betas and gammas)
     
     # Predictions: ignoring all predictions with labels greater or equal than n_classes
     raw_prediction = tf.reshape(raw_output, [-1, args.num_classes])
@@ -275,6 +275,7 @@ def main():
         start_time = time.time()
         if step in lr_steps:
             factor *= 0.1
+            print(f'Dividing learning rate, learning rate is now {factor * args.lr:g}')
         feed_dict = { step_ph : step, mult_factor: factor }
         
         if step % args.save_pred_every == 0:
