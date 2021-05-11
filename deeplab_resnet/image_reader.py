@@ -137,7 +137,9 @@ def read_images_from_disk(input_queue, input_size, random_scale, random_mirror, 
 
     if binary:
         mask = tf.equal(label, ignore_label)
+        label = tf.cast(label, dtype=tf.float32)
         label = tf.clip_by_value(label, 0, 1)
+        label = tf.cast(label, dtype=tf.int32)
         label = tf.where_v2(mask, ignore_label, label)
 
     if input_size is not None:

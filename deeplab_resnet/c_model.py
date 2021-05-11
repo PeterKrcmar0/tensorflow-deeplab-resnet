@@ -7,7 +7,7 @@ from kaffe.tensorflow import Network
 import tensorflow as tf
 
 
-class cResNet_93(Netork):
+class cResNet_93(Network):
      def setup(self, is_training, is_training2, num_classes):
         (self.feed('data')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels_branch1')

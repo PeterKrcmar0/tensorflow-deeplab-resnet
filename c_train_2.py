@@ -148,7 +148,8 @@ def main():
             args.ignore_label,
             IMG_MEAN,
             coord,
-            True)
+            latent=True,
+            binary=args.num_classes == 2)
         image_batch, label_batch = reader.dequeue(args.batch_size)
 
     latent_batch = tf.cast(compressor(image_batch), tf.float32)

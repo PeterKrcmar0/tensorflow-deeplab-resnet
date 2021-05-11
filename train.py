@@ -137,7 +137,8 @@ def main():
             args.random_mirror,
             args.ignore_label,
             IMG_MEAN,
-            coord)
+            coord,
+            binary=args.num_classes == 2)
         image_batch, label_batch = reader.dequeue(args.batch_size)
     
     # Create network.
