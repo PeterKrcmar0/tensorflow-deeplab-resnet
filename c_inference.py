@@ -25,6 +25,8 @@ NUM_CLASSES = 21
 SAVE_DIR = './output/'
 MODEL = "cResNet"
 LEVEL = 1
+MASK_PATH = "./VOC2012/SegmentationClassAug/"
+IMG_PATH = "./VOC2012/JPEGImages/"
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -35,9 +37,11 @@ def get_arguments():
     parser = argparse.ArgumentParser(description="DeepLabLFOV Network Inference.")
 
     parser.add_argument("img_path", type=str,
-                        help="Path to the latent representation npy file.", default='./images/test_indoor2.jpg')
+                        help="Path to the image.", default='./images/test_indoor2.jpg')
     parser.add_argument("model_weights", type=str,
                         help="Path to the file with model weights.", default='./deeplab_resnet.ckpt')
+    parser.add_argument("--with-original", action="store_true",
+                        help="If we should store the original image + mask alongside the prediction.")
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
     parser.add_argument("--save-dir", type=str, default=SAVE_DIR,
@@ -46,8 +50,6 @@ def get_arguments():
                         help="Which model to train (cResNet, cResNet39, cReset39-h).")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
-    parser.add_argument("--include-hyper", action="store_true",
-                        help="If the hyper-prior should be included")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -66,7 +68,7 @@ def main():
     args = get_arguments()
     
     # Prepare image so we can feed it to the compression module.
-    image = tf.image.decode_jpeg(tf.io.read_file(args.img_path), channels=3)
+    image = tf.image.decode_jpeg(tf.io.read_file(IMG_PATH + args.img_path), channels=3)
     image = tf.expand_dims(image, 0)
     image = tf.cast(image, tf.uint8)
 
@@ -74,7 +76,7 @@ def main():
     compressor = get_model_for_level(args.level, latent=True, include_hyperprior= "-h" in args.model)
 
     # Extract latent space
-    latent_batch = tf.cast(compressor(image_batch), tf.float32)
+    latent_batch = tf.cast(compressor(image), tf.float32)
 
     # Create network.
     if args.model == "cResNet":
@@ -90,7 +92,7 @@ def main():
     elif args.model == "cResNet39-h3":
         net = cResNet_39_hyper3({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, num_classes=args.num_classes)
     else:
-        raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
+        raise Exception(f"Invalid model : {args.model}")
 
     # Which variables to load.
     restore_var = tf.global_variables()
@@ -123,6 +125,15 @@ def main():
         os.makedirs(args.save_dir)
     output_file = args.save_dir + Path(args.img_path).stem + '_mask_c_{args.level}.png'
     im.save(output_file)
+
+    if args.with_original:
+        im = Image.open(IMG_PATH + args.img_path)
+        im.save(args.save_dir + args.img_path + '.jpeg')
+
+        original = Image.open(MASK_PATH + args.img_path)
+        original = decode_labels(original, num_classes=args.num_classes)
+        im = Image.fromarray(original[0])
+        im.save(args.save_dir + args.img_path + '_mask.png')
     
     print('The output file has been saved to {}'.format(output_file))
 

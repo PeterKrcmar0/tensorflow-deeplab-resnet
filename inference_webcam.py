@@ -32,10 +32,8 @@ def get_arguments():
       A list of parsed arguments.
     """
     parser = argparse.ArgumentParser(description="DeepLabLFOV Network Inference(webcam).")
-
     parser.add_argument("--model_weights", type=str,
                         help="Path to the file with model weights.", default='./deeplab_resnet.ckpt')
-
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
 
