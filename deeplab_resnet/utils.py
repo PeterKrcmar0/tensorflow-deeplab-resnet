@@ -14,7 +14,9 @@ label_colours = [(0,0,0)
                 ,(0,64,0),(128,64,0),(0,192,0),(128,192,0),(0,64,128)]
                 # 16=potted plant, 17=sheep, 18=sofa, 19=train, 20=tv/monitor
 
-def decode_labels(mask, num_images=1, num_classes=21, label_colours=label_colours):
+label_colours_bin = [(0,0,0), (255,255,255)]
+
+def decode_labels(mask, num_images=1, num_classes=21):
     """Decode batch of segmentation masks.
     
     Args:
@@ -25,6 +27,7 @@ def decode_labels(mask, num_images=1, num_classes=21, label_colours=label_colour
     Returns:
       A batch with num_images RGB images of the same size as the input. 
     """
+    palette = label_colours_bin if num_classes == 2 else label_colours
     n, h, w, c = mask.shape
     assert(n >= num_images), 'Batch size %d should be greater or equal than number of images to save %d.' % (n, num_images)
     outputs = np.zeros((num_images, h, w, 3), dtype=np.uint8)
@@ -34,7 +37,7 @@ def decode_labels(mask, num_images=1, num_classes=21, label_colours=label_colour
       for j_, j in enumerate(mask[i, :, :, 0]):
           for k_, k in enumerate(j):
               if k < num_classes:
-                  pixels[k_,j_] = label_colours[k]
+                  pixels[k_,j_] = palette[k]
       outputs[i] = np.array(img)
     return outputs
 
