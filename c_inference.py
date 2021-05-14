@@ -25,8 +25,7 @@ NUM_CLASSES = 21
 SAVE_DIR = './output/'
 MODEL = "cResNet"
 LEVEL = 1
-MASK_PATH = "./VOC2012/SegmentationClassAug/"
-IMG_PATH = "./VOC2012/JPEGImages/"
+DATA_PATH = "./dataset/VOC2012"
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -50,6 +49,7 @@ def get_arguments():
                         help="Which model to train (cResNet, cResNet39, cReset39-h).")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
+    parser.add_argument("--data-path", type=str, help="Path to VOC data.", default=DATA_PATH)
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -66,6 +66,13 @@ def load(saver, sess, ckpt_path):
 def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
+
+    if not args.with_original:
+        IMG_PATH = ""
+        MASK_PATH = ""
+    else:
+        MASK_PATH = args.data_path + "/SegmentationClassAug/"
+        IMG_PATH = args.data_path + "/JPEGImages/"
     
     # Prepare image so we can feed it to the compression module.
     image = tf.image.decode_jpeg(tf.io.read_file(IMG_PATH + args.img_path), channels=3)
@@ -119,21 +126,29 @@ def main():
     # Perform inference.
     preds = sess.run(pred)
     
+    file_name = Path(args.img_path).stem
     msk = decode_labels(preds, num_classes=args.num_classes)
     im = Image.fromarray(msk[0])
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
-    output_file = args.save_dir + Path(args.img_path).stem + '_mask_c_{args.level}.png'
+    output_file = args.save_dir + file_name + f'_mask_c_{args.level}.png'
     im.save(output_file)
 
     if args.with_original:
         im = Image.open(IMG_PATH + args.img_path)
-        im.save(args.save_dir + args.img_path + '.jpeg')
+        im.save(args.save_dir + args.img_path)
 
-        original = Image.open(MASK_PATH + args.img_path)
+        original = tf.image.decode_jpeg(tf.io.read_file(MASK_PATH + file_name + '.png'), channels=1)
+        mask = tf.equal(original, 255)
+        original = tf.cast(original, dtype=tf.float32)
+        original = tf.clip_by_value(original, 0, 1)
+        original = tf.cast(original, dtype=tf.int32)
+        original = tf.where_v2(mask, 255, original)
+        original = tf.expand_dims(original, 0)
+        original = sess.run(original)
         original = decode_labels(original, num_classes=args.num_classes)
         im = Image.fromarray(original[0])
-        im.save(args.save_dir + args.img_path + '_mask.png')
+        im.save(args.save_dir + file_name + '_mask.png')
     
     print('The output file has been saved to {}'.format(output_file))
 

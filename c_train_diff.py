@@ -271,6 +271,10 @@ def main():
     lr_steps = [int(step) for step in lr_steps]
     factor = 1.0
 
+    model_name = f'{args.model}-lvl{args.level}'
+    if args.num_classes == 2:
+        model_name += '-bin'
+
     # Iterate over training steps.
     for step in range(args.num_steps):
         start_time = time.time()
@@ -283,7 +287,7 @@ def main():
             loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op], feed_dict=feed_dict)
             summary_writer.add_summary(loss_sum, step)
             summary_writer.add_summary(summary, step)
-            save(saver, sess, args.snapshot_dir, step, f'{args.model}-lvl{args.level}')
+            save(saver, sess, args.snapshot_dir, step, model_name)
         else:
             loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)
             summary_writer.add_summary(loss_sum, step)
