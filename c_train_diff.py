@@ -233,8 +233,8 @@ def main():
         learning_rate = tf.scalar_mul(base_lr, mult_factor)
 
     opt_big = tf.train.MomentumOptimizer(learning_rate, args.momentum)
-    opt_medium = tf.train.MomentumOptimizer(learning_rate * 0.01, args.momentum) # 100 times smaller
-    opt_small = tf.train.MomentumOptimizer(learning_rate * 0.0001, args.momentum) # 10'000 times smaller  #TODO: try with 10 and 100
+    opt_medium = tf.train.MomentumOptimizer(learning_rate, args.momentum) # 100 times smaller
+    opt_small = tf.train.MomentumOptimizer(learning_rate * 0.1, args.momentum) # 10'000 times smaller  #TODO: try with 10 and 100
 
     grads = tf.gradients(reduced_loss, big_lr_trainable + medium_lr_trainable + small_lr_trainable)
     grads_big = grads[:len(big_lr_trainable)]
@@ -279,9 +279,9 @@ def main():
         feed_dict = { step_ph : step, mult_factor: factor }
         
         if step % args.save_pred_every == 0:
-            loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op], feed_dict=feed_dict)
+            loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)
             summary_writer.add_summary(loss_sum, step)
-            summary_writer.add_summary(summary, step)
+            #summary_writer.add_summary(summary, step)
             save(saver, sess, args.snapshot_dir, step, f'{args.model}-lvl{args.level}')
         else:
             loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)
