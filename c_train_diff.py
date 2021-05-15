@@ -150,14 +150,15 @@ def main():
             args.ignore_label,
             IMG_MEAN,
             coord,
-            True)
+            latent=True,
+            binary=args.num_classes == 2)
         image_batch, label_batch = reader.dequeue(args.batch_size)
 
     latent_batch = tf.cast(compressor(image_batch), tf.float32)
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+        net = cResNet_91({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet39":
         net = cResNet_39({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet42":
@@ -197,7 +198,7 @@ def main():
     indices = tf.squeeze(tf.where(tf.less_equal(raw_gt, args.num_classes - 1)), 1)
     gt = tf.cast(tf.gather(raw_gt, indices), tf.int32)
     prediction = tf.gather(raw_prediction, indices)
-                                                  
+                
                                                   
     # Pixel-wise softmax loss.
     loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction, labels=gt)
@@ -233,8 +234,8 @@ def main():
         learning_rate = tf.scalar_mul(base_lr, mult_factor)
 
     opt_big = tf.train.MomentumOptimizer(learning_rate, args.momentum)
-    opt_medium = tf.train.MomentumOptimizer(learning_rate, args.momentum) # 100 times smaller
-    opt_small = tf.train.MomentumOptimizer(learning_rate * 0.1, args.momentum) # 10'000 times smaller  #TODO: try with 10 and 100
+    opt_medium = tf.train.MomentumOptimizer(learning_rate, args.momentum) # 10 times smaller
+    opt_small = tf.train.MomentumOptimizer(learning_rate * 0.1, args.momentum) # 100 times smaller
 
     grads = tf.gradients(reduced_loss, big_lr_trainable + medium_lr_trainable + small_lr_trainable)
     grads_big = grads[:len(big_lr_trainable)]

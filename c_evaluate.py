@@ -23,6 +23,9 @@ VOC_CLASSES = [
     'background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
     'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
     'person', 'potted plant', 'sheep', 'sofa', 'train', 'tv/monitor']
+BIN_CLASSES = [
+    'background', 'foreground'
+]
 
 DATA_DIRECTORY = './VOC2012'
 DATA_LIST_PATH = './dataset/val.txt'
@@ -59,8 +62,6 @@ def get_arguments():
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
                         help="Which model to train (cResNet, cResNet39, resNet).")
-    parser.add_argument("--include-hyper", action="store_true",
-                        help="If the hyper-prior should be included")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -95,7 +96,8 @@ def main():
             args.ignore_label,
             IMG_MEAN,
             coord, 
-            True)
+            latent=True,
+            binary=args.num_classes == 2)
         image, label = reader.image, reader.label
     image_batch, label_batch = tf.expand_dims(image, dim=0), tf.expand_dims(label, dim=0) # Add one batch dimension.
 
@@ -104,7 +106,7 @@ def main():
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_batch[0]}, num_classes=args.num_classes)
+        net = cResNet_91({'data': latent_batch[0]}, num_classes=args.num_classes)
     elif args.model == "cResNet39":
         net = cResNet_39({'data': latent_batch[0]}, num_classes=args.num_classes)
     elif args.model == "cResNet42":
@@ -179,6 +181,18 @@ def main():
     IOU = TP / (TP + FP + FN)
     np.save(f'{args.save_dir}/confusion_matrix_{args.restore_from.split("/")[-1]}.npy', c)
     our_miou = np.nanmean(IOU)
+    # get pixel accuracy as well if we are doing binary classification
+    if (args.num_classes == 2):
+        TN = c[0,0] # both agree on background
+        TP = c[1,1] # both agree on object
+        FN = c[1,0] # predicts background but was object
+        FP = c[0,1] # predicts object but was background
+        (TN, FP, FN, TP) = c.ravel()
+        accuracy = (TP + TN) / (TP + TN + FP + TN)
+        jaccard = TP / (TP + FP + FN)
+        print(accuracy, jaccard)
+        with open(f'{args.save_dir}/pixel_acc.txt', 'a') as f:
+            f.write(f'{args.restore_from} {accuracy} {jaccard}\n')
     print('Our mean IoU: {:.3f}'.format(our_miou))
     for i,(v,c) in enumerate(zip(list(IOU),VOC_CLASSES)):
         print(f'IoU for class {i}: {v:.3f} ({c})')

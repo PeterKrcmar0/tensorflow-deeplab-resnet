@@ -154,14 +154,15 @@ def main():
             args.ignore_label,
             IMG_MEAN,
             coord,
-            True)
+            latent=True,
+            binary=args.num_classes == 2)
         image_batch, label_batch = reader.dequeue(args.batch_size)
 
     latent_batch = tf.cast(compressor(image_batch), tf.float32)
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNetModel({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+        net = cResNet_91({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet39":
         net = cResNet_39({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet42":
