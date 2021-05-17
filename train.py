@@ -89,7 +89,7 @@ def get_arguments():
                         help="Level of the compression model (1 - 8).")
     return parser.parse_args()
 
-def save(saver, sess, logdir, step):
+def save(saver, sess, logdir, step, model_name):
    '''Save weights.
    
    Args:
@@ -98,7 +98,7 @@ def save(saver, sess, logdir, step):
      logdir: path to the snapshots directory.
      step: current training step.
    '''
-   model_name = 'model.ckpt'
+   model_name = model_name + '.ckpt' #'model.ckpt'
    checkpoint_path = os.path.join(logdir, model_name)
     
    if not os.path.exists(logdir):
@@ -244,6 +244,10 @@ def main():
     # Start queue threads.
     threads = tf.train.start_queue_runners(coord=coord, sess=sess)
 
+    model_name = 'model'
+    if args.level > 0: model_name += f'-lvl{args.level}'
+    if args.num_classes == 2 : model_name += '-bin'
+
     # Iterate over training steps.
     for step in range(args.num_steps):
         start_time = time.time()
@@ -252,7 +256,7 @@ def main():
         if step % args.save_pred_every == 0:
             loss_value, images, labels, preds, summary, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, train_op], feed_dict=feed_dict)
             summary_writer.add_summary(summary, step)
-            save(saver, sess, args.snapshot_dir, step)
+            save(saver, sess, args.snapshot_dir, step, model_name)
         else:
             loss_value, _ = sess.run([reduced_loss, train_op], feed_dict=feed_dict)
         duration = time.time() - start_time
