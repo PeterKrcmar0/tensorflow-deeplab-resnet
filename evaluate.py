@@ -93,8 +93,8 @@ def main():
             args.ignore_label,
             IMG_MEAN,
             coord,
-            False,
-            compressor,
+            latent=False,
+            compressor=compressor,
             binary=args.num_classes==2)
         image, label = reader.image, reader.label
     image_batch, label_batch = tf.expand_dims(image, dim=0), tf.expand_dims(label, dim=0) # Add one batch dimension.

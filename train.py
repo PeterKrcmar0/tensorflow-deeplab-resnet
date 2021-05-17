@@ -16,7 +16,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import DeepLabResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label
+from deeplab_resnet import * #DeepLabResNetModel, ImageReader, decode_labels, inv_preprocess, prepare_label
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -36,7 +36,7 @@ SAVE_NUM_IMAGES = 2
 SAVE_PRED_EVERY = 1000
 SNAPSHOT_DIR = './snapshots/'
 WEIGHT_DECAY = 0.0005
-
+LEVEL = -1
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -85,6 +85,8 @@ def get_arguments():
                         help="Where to save snapshots of the model.")
     parser.add_argument("--weight-decay", type=float, default=WEIGHT_DECAY,
                         help="Regularisation parameter for L2-loss.")
+    parser.add_argument("--level", type=int, default=LEVEL,
+                        help="Level of the compression model (1 - 8).")
     return parser.parse_args()
 
 def save(saver, sess, logdir, step):
@@ -126,6 +128,12 @@ def main():
     
     # Create queue coordinator.
     coord = tf.train.Coordinator()
+
+    # Create compressor
+    if args.level > 0:
+        compressor = get_model_for_level(args.level, latent=False)
+    else:
+        compressor = None
     
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -138,7 +146,9 @@ def main():
             args.ignore_label,
             IMG_MEAN,
             coord,
-            binary=args.num_classes == 2)
+            latent=False,
+            compressor=compressor,
+            binary=args.num_classes==2)
         image_batch, label_batch = reader.dequeue(args.batch_size)
     
     # Create network.
