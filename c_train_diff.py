@@ -94,6 +94,8 @@ def get_arguments():
                         help="If learning rate should decay or by decremented by steps (defined by --lr-steps).")
     parser.add_argument("--lr-steps", type=str,
                         help="At what number of steps we divide lr by 10 (comma separated values).")
+    parser.add_argument("--loss", type=str, default="cross-entropy",
+                        help="Loss function to use (cross-entropy, dice).")
     return parser.parse_args()
 
 def save(saver, sess, logdir, step, model_name):
@@ -198,10 +200,14 @@ def main():
     indices = tf.squeeze(tf.where(tf.less_equal(raw_gt, args.num_classes - 1)), 1)
     gt = tf.cast(tf.gather(raw_gt, indices), tf.int32)
     prediction = tf.gather(raw_prediction, indices)
-                
-                                                  
-    # Pixel-wise softmax loss.
-    loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction, labels=gt)
+
+    # Loss: either dice or pixel-wise cross entropy (TODO: we're not masking out the ignore label...)
+    if args.loss == "dice" and args.num_classes == 2:
+        gt = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes, one_hot=True)
+        raw_output = tf.nn.softmax(logits=raw_output)
+        loss = 1 - dice_coef(output=raw_output, target=gt)
+    else:
+        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction, labels=gt)
     l2_losses = [args.weight_decay * tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'weights' in v.name]
     reduced_loss = tf.reduce_mean(loss) + tf.add_n(l2_losses)
     
@@ -286,7 +292,6 @@ def main():
         if step % args.save_pred_every == 0:
             loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)
             summary_writer.add_summary(loss_sum, step)
-            summary_writer.add_summary(summary, step)
             save(saver, sess, args.snapshot_dir, step, model_name)
         else:
             loss_value, loss_sum, _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)

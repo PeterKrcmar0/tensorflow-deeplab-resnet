@@ -67,9 +67,10 @@ def main():
     if args.level > 0:
         compressor = get_model_for_level(args.level, latent=False)
         img = tf.cast(img, dtype=tf.uint8)
+        img = tf.expand_dims(img, dim=0)
         img = compressor(img)[0]
         img = tf.squeeze(img)
-        #img.set_shape((None, None, 3))
+        img.set_shape((None, None, 3))
 
     # Convert RGB to BGR.
     img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)

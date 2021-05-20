@@ -170,8 +170,6 @@ def main():
     np.save(f'{args.save_dir}/confusion_matrix.npy', c)
     our_miou = np.nanmean(IOU)
     print('Our mean IoU: {:.3f}'.format(our_miou))
-    for i,(v,c) in enumerate(zip(list(IOU),VOC_CLASSES)):
-        print(f'IoU for class {i}: {v:.3f} ({c})')
 
     # get pixel accuracy as well if we are doing binary classification
     if (args.num_classes == 2):
@@ -185,6 +183,9 @@ def main():
         print(accuracy, jaccard)
         with open(f'{args.save_dir}/pixel_acc.txt', 'a') as f:
             f.write(f'{args.restore_from} {accuracy} {jaccard}\n')
+    else:
+        for i,(v,cc) in enumerate(zip(list(IOU),VOC_CLASSES)):
+            print(f'IoU for class {i}: {v:.3f} ({cc})')
 
 
     coord.request_stop()
