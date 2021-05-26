@@ -236,6 +236,10 @@ def main():
     # Start queue threads.
     threads = tf.train.start_queue_runners(coord=coord, sess=sess)
         
+    model_name = args.restore_from.split("/")[-1]
+    model_name = model_name.split(".")[0]
+    model_name += "-ft"
+
     # Iterate over training steps.
     for step in range(args.num_steps):
         start_time = time.time()
@@ -244,7 +248,7 @@ def main():
             loss_value, images, labels, preds, summary, summary2, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, optim])
             summary_writer.add_summary(summary, step)
             summary_writer.add_summary(summary2, step)
-            save(saver, sess, args.snapshot_dir, step)
+            save(saver, sess, args.snapshot_dir, step, model_name)
         else:
             loss_value, summary2, _ = sess.run([reduced_loss, loss_summary, optim])
             summary_writer.add_summary(summary2, step)
