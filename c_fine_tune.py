@@ -17,7 +17,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import cResNet_39, cResNet_91, ImageReader, decode_labels, inv_preprocess, prepare_label, get_model_for_level
+from deeplab_resnet import *
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -82,17 +82,26 @@ def get_arguments():
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
                         help="Which model to train (cResNet, cResNet39, resNet).")
+    parser.add_argument("--upscale", action="store_true",
+                        help="If the prediction should be upscaled to compute the loss.")
     return parser.parse_args()
 
-def save(saver, sess, logdir, step):
-    model_name = 'model.ckpt'
-    checkpoint_path = os.path.join(logdir, model_name)
+def save(saver, sess, logdir, step, model_name):
+   '''Save weights.
+   
+   Args:
+     saver: TensorFlow Saver object.
+     sess: TensorFlow session.
+     logdir: path to the snapshots directory.
+     step: current training step.
+   '''
+   model_name = model_name+'.ckpt' #'model.ckpt'
+   checkpoint_path = os.path.join(logdir, model_name)
     
-    if not os.path.exists(logdir):
-        os.makedirs(logdir)
-
-    saver.save(sess, checkpoint_path, global_step=step, write_meta_graph=step==0)
-    print('The checkpoint has been created.')
+   if not os.path.exists(logdir):
+      os.makedirs(logdir)
+   saver.save(sess, checkpoint_path, global_step=step, write_meta_graph=step==0)
+   print('The checkpoint has been created.')
 
 def load(saver, sess, ckpt_path):
     '''Load trained weights.
@@ -118,7 +127,7 @@ def main():
     coord = tf.train.Coordinator()
     
     # Create compression model.
-    compressor = get_model_for_level(args.level)
+    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, include_hyperprior= "-h" in args.model)
     
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -131,17 +140,27 @@ def main():
             args.ignore_label,
             IMG_MEAN,
             coord,
-            True) # latent
+            latent=True,
+            binary=args.num_classes == 2)
         image_batch, label_batch = reader.dequeue(args.batch_size)
-        latent_batch = tf.cast(compressor(image_batch)[0], tf.float32)
+
+    latent_batch = tf.cast(compressor(image_batch), tf.float32)
     
     # Create network.
     if args.model == "cResNet":
-        net = cResNet_91({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNet_91({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet39":
-        net = cResNet_39({'data': latent_batch}, is_training=args.is_training, num_classes=args.num_classes)
+        net = cResNet_39({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet42":
+        net = cResNet_42({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39-h":
+        net = cResNet_39_hyper({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39-h2":
+        net = cResNet_39_hyper2({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet39-h3":
+        net = cResNet_39_hyper3({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
     else:
-        raise Exception("Invalid model, must be one of (cResNet, cResNet39)")
+        raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
     # For a small batch size, it is better to keep 
     # the statistics of the BN layers (running means and variances)
     # frozen, and to not update the values provided by the pre-trained model. 
@@ -156,14 +175,22 @@ def main():
     # Restore all variables, or all except the last ones.
     restore_var = [v for v in tf.global_variables() if 'fc' not in v.name or not args.not_restore_last]
     trainable = [v for v in tf.trainable_variables() if 'fc1_voc12' in v.name] # Fine-tune only the last layers
-    print(restore_var)
     
-    prediction = tf.reshape(raw_output, [-1, args.num_classes])
-    label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes)
-    gt = tf.reshape(label_proc, [-1, args.num_classes])
+    if args.upscale:
+        raw_prediction = tf.image.resize_bilinear(raw_output, input_size) # upscale
+        raw_prediction = tf.reshape(raw_prediction, [-1, args.num_classes]) # reshape
+        raw_gt = tf.reshape(label_batch, [-1,])
+        indices = tf.squeeze(tf.where(tf.less_equal(raw_gt, args.num_classes - 1)), 1) # mask out 255
+        gt = tf.cast(tf.gather(raw_gt, indices), tf.int32)
+        prediction = tf.gather(raw_prediction, indices)
+        loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction, labels=gt)
+    else:
+        prediction = tf.reshape(raw_output, [-1, args.num_classes])
+        label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes)
+        gt = tf.reshape(label_proc, [-1, args.num_classes])
+        loss = tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=gt)
     
     # Pixel-wise softmax loss.
-    loss = tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=gt)
     reduced_loss = tf.reduce_mean(loss)
     
     # Processed predictions.
@@ -199,7 +226,7 @@ def main():
     sess.run(init)
     
     # Saver for storing checkpoints of the model.
-    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=20)
+    saver = tf.train.Saver(var_list=tf.global_variables(), max_to_keep=40)
     
     # Load variables if the checkpoint is provided.
     if args.restore_from is not None:
