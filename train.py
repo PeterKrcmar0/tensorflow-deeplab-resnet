@@ -173,7 +173,6 @@ def main():
     assert(len(all_trainable) == len(fc_trainable) + len(conv_trainable))
     assert(len(fc_trainable) == len(fc_w_trainable) + len(fc_b_trainable))
     
-    
     # Predictions: ignoring all predictions with labels greater or equal than n_classes
     raw_prediction = tf.reshape(raw_output, [-1, args.num_classes])
     label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes, one_hot=False) # [batch_size, h, w]
@@ -223,7 +222,6 @@ def main():
     train_op_fc_b = opt_fc_b.apply_gradients(zip(grads_fc_b, fc_b_trainable))
 
     train_op = tf.group(train_op_conv, train_op_fc_w, train_op_fc_b)
-    
     
     # Set up tf session and initialize variables. 
     config = tf.ConfigProto()

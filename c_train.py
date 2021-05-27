@@ -98,6 +98,8 @@ def get_arguments():
                         help="Alpha for exp learning rate policy")
     parser.add_argument("--update-bn", action="store_true",
                         help="If gamma and beta should be learned for the first layers")
+    parser.add_argument("--upscale", action="store_true",
+                        help="If the prediction should be upscaled to compute the loss.")
     return parser.parse_args()
 
 def save(saver, sess, logdir, step, model_name):
@@ -197,15 +199,23 @@ def main():
     assert(len(all_trainable) == len(fc_trainable) + len(conv_trainable))
     assert(len(fc_trainable) == len(fc_w_trainable) + len(fc_b_trainable))
     
-    # Predictions: ignoring all predictions with labels greater or equal than n_classes
-    raw_prediction = tf.reshape(raw_output, [-1, args.num_classes])
-    label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes, one_hot=False) # [batch_size, h, w]
-    raw_gt = tf.reshape(label_proc, [-1,])
+    # Predictions: reshape logits and downscale GT
+    if not args.upscale:
+        raw_prediction = tf.reshape(raw_output, [-1, args.num_classes])
+        label_proc = prepare_label(label_batch, tf.stack(raw_output.get_shape()[1:3]), num_classes=args.num_classes, one_hot=False) # [batch_size, h, w]
+        raw_gt = tf.reshape(label_proc, [-1,])
+        
+    # Upscale logits instead of downscaling GT
+    else:
+        raw_prediction = tf.image.resize_bilinear(raw_output, input_size) # upscale
+        raw_prediction = tf.reshape(raw_prediction, [-1, args.num_classes]) # reshape
+        raw_gt = tf.reshape(label_batch, [-1,])
+
+    # Mask out values larger than number of classes (ignore label)
     indices = tf.squeeze(tf.where(tf.less_equal(raw_gt, args.num_classes - 1)), 1)
     gt = tf.cast(tf.gather(raw_gt, indices), tf.int32)
     prediction = tf.gather(raw_prediction, indices)
-                                                  
-                                                  
+
     # Pixel-wise softmax loss.
     loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=prediction, labels=gt)
     l2_losses = [args.weight_decay * tf.nn.l2_loss(v) for v in tf.trainable_variables() if 'weights' in v.name]
@@ -286,14 +296,15 @@ def main():
         start_time = time.time()
         feed_dict = { step_ph : step }
         
+        loss_value, loss_sum,  _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)
+        summary_writer.add_summary(loss_sum, step)
+        
         if step % args.save_pred_every == 0:
-            loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op], feed_dict=feed_dict)
-            summary_writer.add_summary(loss_sum, step)
-            summary_writer.add_summary(summary, step)
+            #loss_value, images, labels, preds, summary, loss_sum, _ = sess.run([reduced_loss, image_batch, label_batch, pred, total_summary, loss_summary, train_op], feed_dict=feed_dict)
+            #summary_writer.add_summary(loss_sum, step)
+            #summary_writer.add_summary(summary, step)
             save(saver, sess, args.snapshot_dir, step, model_name)
-        else:
-            loss_value, loss_sum,  _ = sess.run([reduced_loss, loss_summary, train_op], feed_dict=feed_dict)
-            summary_writer.add_summary(loss_sum, step)
+            
         duration = time.time() - start_time
         print('step {:d} \t loss = {:.3f}, ({:.3f} sec/step)'.format(step, loss_value, duration))
     coord.request_stop()
