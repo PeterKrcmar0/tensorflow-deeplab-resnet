@@ -4,12 +4,12 @@ import numpy as np
 import urllib
 import tensorflow as tf
 import tensorflow_compression as tfc    # pylint:disable=unused-import
+from .packed_tensors import PackedTensors
 
 # Default URL to fetch metagraphs from.
 URL_PREFIX = "https://storage.googleapis.com/tensorflow_compression/metagraphs"
 # Default location to store cached metagraphs.
 METAGRAPH_CACHE = "/tmp/tfc_metagraphs"
-
 
 def read_png(filename):
     """Loads a PNG image file."""
@@ -85,7 +85,7 @@ def extract_latent_from_file(filename, decompressor=None, sigma=False):
 
 def extract_latent_from_bitstring(bitstring, decompressor=None, sigma=False):
     """Extract latent space given a decoded tfci file (bitstring). Instantiates a new decompressor if none is provided."""
-    packed = tfc.PackedTensors(bitstring)
+    packed = PackedTensors(bitstring)
     if decompressor is None:
         decompressor = decompressor_for_level(int(level=packed.model[-1]), sigma=sigma)
     tensors = packed.unpack(decompressor.inputs)
