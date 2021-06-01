@@ -80,7 +80,7 @@ def main():
     image = tf.cast(image, tf.uint8)
 
     # Get compression model.
-    compressor = get_model_for_level(args.level, latent=True, include_hyperprior= "-h" in args.model)
+    compressor = get_model_for_level(args.level, latent=True, sigma= "-h" in args.model)
 
     # Extract latent space
     latent_batch = tf.cast(compressor(image), tf.float32)

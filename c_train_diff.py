@@ -139,7 +139,7 @@ def main():
     coord = tf.train.Coordinator()
 
     # Create compression model.
-    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, include_hyperprior= "-h" in args.model)
+    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, sigma= "-h" in args.model)
     
     # Load reader.
     with tf.name_scope("create_inputs"):
