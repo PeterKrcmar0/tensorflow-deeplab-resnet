@@ -32,10 +32,10 @@ def get_arguments():
     Returns:
       A list of parsed arguments.
     """
-    parser = argparse.ArgumentParser(description="DeepLabLFOV Network Inference.")
+    parser = argparse.ArgumentParser(description="Inference using a DeepLab network.")
 
     parser.add_argument("img_path", type=str,
-                        help="Path to the RGB image file.", default='./images/test_indoor2.jpg')
+                        help="Path to the RGB image file.", default=None)
     parser.add_argument("model_weights", type=str,
                         help="Path to the file with model weights.", default='./deeplab_resnet.ckpt')
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
@@ -44,8 +44,8 @@ def get_arguments():
                         help="Where to save predicted mask.")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
-    parser.add_argument("--data-path", type=str, help="Path to VOC data.", default=DATA_PATH)
-    parser.add_argument("--no-gpu", action="store_true")
+    parser.add_argument("--data-path", type=str, help="Path to VOC data (optional), can be specified in img_path.", default=DATA_PATH)
+    parser.add_argument("--no-gpu", action="store_true", help="Whether to use GPU or not.")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):

@@ -22,11 +22,6 @@ from deeplab_resnet import *
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
-VOC_CLASSES = [
-    'background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
-    'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
-    'person', 'potted plant', 'sheep', 'sofa', 'train', 'tv/monitor']
-
 DATA_DIRECTORY = './VOC2012/tfci/'
 RESTORE_FROM = './deeplab_resnet.ckpt'
 SAVE_DIRECTORY = './output'
@@ -39,19 +34,20 @@ def get_arguments():
     Returns:
       A list of parsed arguments.
     """
-    parser = argparse.ArgumentParser(description="DeepLabLFOV Network")
+    parser = argparse.ArgumentParser(description="Evaluate speed of DeepLab network using reconstructed images.")
+    parser = argparse.ArgumentParser(description="Evaluate speed of comrpessed-domain network.")
     parser.add_argument("--data-dir", type=str, default=DATA_DIRECTORY,
-                        help="Path to the directory containing the PASCAL VOC dataset.")
+                        help="Path to the directory containing the data (images if --rt or tfci files otherwise)")
     parser.add_argument("--restore-from", type=str, default=RESTORE_FROM,
                         help="Where restore model parameters from.")
     parser.add_argument("--save-dir", type=str, default=SAVE_DIRECTORY,
-                        help="Directory where to save miou value.")
+                        help="Directory where to save speed values. (debug)")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
-    parser.add_argument("--num-classes", type=int, default=21, help="Num classes.")
+    parser.add_argument("--num-classes", type=int, default=21, help="Number of classes.")
     parser.add_argument("--rt", action="store_true", help="If using realtime pipeline (rgb images, not tfci)")
-    parser.add_argument("--num-iter", type=int, default=NUM_ITERS, help="Num iterations.")
-    parser.add_argument("--no-gpu", action="store_true")
+    parser.add_argument("--no-gpu", action="store_true", help="To turn of gpu.")
+    parser.add_argument("--num-iter", type=int, default=NUM_ITERS, help="Number of images to evaluate.")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -175,13 +171,14 @@ def main():
     times2 = np.array(times2)
     times = times1 + times2
     
-    print(f"{times1.mean():.3f} {times1.std():.3f}")
-    print(f"{times2.mean():.3f} {times2.std():.3f}")
-    print(f"{times.mean():.3f} {times.std():.3f}")
+    print(f"Mean codec time: {times1.mean():.3f}")
+    print(f"Mean inference time: {times2.mean():.3f}")
+    print(f"Mean total time: {times.mean():.3f}")
 
-    with open(f'{args.save_dir}/times.txt', 'a') as f:
-        string = f"{times1.mean():.3f} $\\pm$ {times1.std():.3f} & {times2.mean():.3f} $\\pm$ {times2.std():.3f} & {times.mean():.3f} $\\pm$ {times.std():.3f}"
-        f.write(f'anchor-lvl{args.level} {args.rt} {string}\n')
+    # DEBUG: store data in file
+    #with open(f'{args.save_dir}/times.txt', 'a') as f:
+    #    string = f"{times1.mean():.3f} $\\pm$ {times1.std():.3f} & {times2.mean():.3f} $\\pm$ {times2.std():.3f} & {times.mean():.3f} $\\pm$ {times.std():.3f}"
+    #    f.write(f'anchor-lvl{args.level} {args.rt} {string}\n')
 
 if __name__ == '__main__':
     main()

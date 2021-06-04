@@ -15,7 +15,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import * #cResNetModel, cResNet_40, ImageReader, prepare_label, get_model_for_level
+from deeplab_resnet import *
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -23,6 +23,7 @@ VOC_CLASSES = [
     'background', 'aeroplane', 'bicycle', 'bird', 'boat', 'bottle', 'bus',
     'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
     'person', 'potted plant', 'sheep', 'sofa', 'train', 'tv/monitor']
+
 BIN_CLASSES = [
     'background', 'foreground'
 ]
@@ -43,7 +44,7 @@ def get_arguments():
     Returns:
       A list of parsed arguments.
     """
-    parser = argparse.ArgumentParser(description="DeepLabLFOV Network")
+    parser = argparse.ArgumentParser(description="Evaluation of compressed-domain network")
     parser.add_argument("--data-dir", type=str, default=DATA_DIRECTORY,
                         help="Path to the directory containing the PASCAL VOC dataset.")
     parser.add_argument("--data-list", type=str, default=DATA_LIST_PATH,
@@ -57,11 +58,11 @@ def get_arguments():
     parser.add_argument("--restore-from", type=str, default=RESTORE_FROM,
                         help="Where restore model parameters from.")
     parser.add_argument("--save-dir", type=str, default=SAVE_DIRECTORY,
-                        help="Directory where to save miou value.")
+                        help="Directory where to save miou value and confusion matrix.")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
-                        help="Which model to train (cResNet, cResNet40, resNet).")
+                        help="Which model to train.")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -78,12 +79,13 @@ def load(saver, sess, ckpt_path):
 def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
+    binary = args.num_classes == 2
 
     # Create queue coordinator.
     coord = tf.train.Coordinator()
 
     # Create compression model.
-    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, sigma="-sigma" in args.model)
+    compressor = get_model_for_level(args.level, latent=True, sigma="sigma" in args.model)
 
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -97,7 +99,7 @@ def main():
             IMG_MEAN,
             coord, 
             latent=True,
-            binary=args.num_classes == 2)
+            binary=binary)
         image, label = reader.image, reader.label
     image_batch, label_batch = tf.expand_dims(image, dim=0), tf.expand_dims(label, dim=0) # Add one batch dimension.
 
@@ -167,7 +169,6 @@ def main():
         if step % 100 == 0:
             print('step {:d}'.format(step))
     miou_val = mIoU.eval(session=sess)
-    print('Mean IoU: {:.3f}'.format(miou_val))
     if not os.path.exists(args.save_dir):
       os.makedirs(args.save_dir)
     with open(f'{args.save_dir}/miou.txt', 'a') as f:
@@ -181,8 +182,9 @@ def main():
     IOU = TP / (TP + FP + FN)
     np.save(f'{args.save_dir}/confusion_matrix_{args.restore_from.split("/")[-1]}.npy', c)
     our_miou = np.nanmean(IOU)
+
     # get pixel accuracy as well if we are doing binary classification
-    if (args.num_classes == 2):
+    if binary:
         TN = c[0,0] # both agree on background
         TP = c[1,1] # both agree on object
         FN = c[1,0] # predicts background but was object
@@ -193,9 +195,10 @@ def main():
         print(accuracy, jaccard)
         with open(f'{args.save_dir}/pixel_acc.txt', 'a') as f:
             f.write(f'{args.restore_from} {accuracy} {jaccard}\n')
-    print('Our mean IoU: {:.3f}'.format(our_miou))
-    for i,(v,c) in enumerate(zip(list(IOU),VOC_CLASSES)):
-        print(f'IoU for class {i}: {v:.3f} ({c})')
+    else:
+        print('Mean IoU: {:.3f}'.format(our_miou))
+        for i,(v,c) in enumerate(zip(list(IOU),BIN_CLASSES if binary else VOC_CLASSES)):
+            print(f'IoU for class {i}: {v:.3f} ({c})')
 
     coord.request_stop()
     coord.join(threads)

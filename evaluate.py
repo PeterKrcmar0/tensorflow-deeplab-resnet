@@ -24,6 +24,10 @@ VOC_CLASSES = [
     'car', 'cat', 'chair', 'cow', 'diningtable', 'dog', 'horse', 'motorbike',
     'person', 'potted plant', 'sheep', 'sofa', 'train', 'tv/monitor']
 
+BIN_CLASSES = [
+    'background', 'foreground'
+]
+
 DATA_DIRECTORY = './VOC2012'
 DATA_LIST_PATH = './dataset/val.txt'
 IGNORE_LABEL = 255
@@ -39,7 +43,7 @@ def get_arguments():
     Returns:
       A list of parsed arguments.
     """
-    parser = argparse.ArgumentParser(description="DeepLabLFOV Network")
+    parser = argparse.ArgumentParser(description="Evaluation of a DeepLab network.")
     parser.add_argument("--data-dir", type=str, default=DATA_DIRECTORY,
                         help="Path to the directory containing the PASCAL VOC dataset.")
     parser.add_argument("--data-list", type=str, default=DATA_LIST_PATH,
@@ -155,7 +159,6 @@ def main():
         if step % 100 == 0:
             print('step {:d}'.format(step))
     miou_val = mIoU.eval(session=sess)
-    print('Mean IoU: {:.3f}'.format(miou_val))
     if not os.path.exists(args.save_dir):
       os.makedirs(args.save_dir)
     with open(f'{args.save_dir}/miou.txt', 'a') as f:
@@ -169,10 +172,9 @@ def main():
     IOU = TP / (TP + FP + FN)
     np.save(f'{args.save_dir}/confusion_matrix.npy', c)
     our_miou = np.nanmean(IOU)
-    print('Our mean IoU: {:.3f}'.format(our_miou))
 
     # get pixel accuracy as well if we are doing binary classification
-    if (args.num_classes == 2):
+    if args.num_classes == 2:
         TN = c[0,0] # both agree on background
         TP = c[1,1] # both agree on object
         FN = c[1,0] # predicts background but was object
@@ -184,7 +186,8 @@ def main():
         with open(f'{args.save_dir}/pixel_acc.txt', 'a') as f:
             f.write(f'{args.restore_from} {accuracy} {jaccard}\n')
     else:
-        for i,(v,cc) in enumerate(zip(list(IOU),VOC_CLASSES)):
+        print('Mean IoU: {:.3f}'.format(our_miou))
+        for i,(v,cc) in enumerate(zip(list(IOU),BIN_CLASSES if args.num_classes == 2 else VOC_CLASSES)):
             print(f'IoU for class {i}: {v:.3f} ({cc})')
 
 

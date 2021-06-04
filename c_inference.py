@@ -17,7 +17,7 @@ from PIL import Image
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import * #cResNetModel, cResNet_40, ImageReader, decode_labels, prepare_label, get_model_for_level
+from deeplab_resnet import *
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
     
@@ -33,25 +33,25 @@ def get_arguments():
     Returns:
       A list of parsed arguments.
     """
-    parser = argparse.ArgumentParser(description="DeepLabLFOV Network Inference.")
+    parser = argparse.ArgumentParser(description="Inference using a compressed-domain network.")
 
     parser.add_argument("img_path", type=str,
-                        help="Path to the image.", default='./images/test_indoor2.jpg')
+                        help="Path to the image.", default=None)
     parser.add_argument("model_weights", type=str,
                         help="Path to the file with model weights.", default='./deeplab_resnet.ckpt')
     parser.add_argument("--with-original", action="store_true",
-                        help="If we should store the original image + mask alongside the prediction.")
+                        help="If you want to output the original image + mask alongside the predicted mask.")
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
     parser.add_argument("--save-dir", type=str, default=SAVE_DIR,
                         help="Where to save predicted mask.")
     parser.add_argument("--model", type=str, default=MODEL,
-                        help="Which model to train (cResNet, cResNet40, cReset39-h).")
+                        help="Which model to train.")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--data-path", type=str, help="Path to VOC data.", default=DATA_PATH)
-    parser.add_argument("--auto", action="store_true")
-    parser.add_argument("--no-gpu", action="store_true")
+    parser.add_argument("--auto", action="store_true", help="Automatically infer other parameters from model name.")
+    parser.add_argument("--no-gpu", action="store_true", help="Don't use the GPU.")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -92,7 +92,7 @@ def main():
     image = tf.cast(image, tf.uint8)
 
     # Get compression model.
-    compressor = get_model_for_level(args.level, latent=True, sigma= "-sigma" in args.model)
+    compressor = get_model_for_level(args.level, latent=True, sigma= "sigma" in args.model)
 
     # Extract latent space
     latent_batch = tf.cast(compressor(image), tf.float32)
