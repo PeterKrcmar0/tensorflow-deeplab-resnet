@@ -33,6 +33,7 @@ RESTORE_FROM = './deeplab_resnet.ckpt'
 SAVE_DIRECTORY = './output'
 MODEL = "cResNet42"
 LEVEL = 1
+NUM_ITERS = -1
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -42,7 +43,7 @@ def get_arguments():
     """
     parser = argparse.ArgumentParser(description="DeepLabLFOV Network")
     parser.add_argument("--data-dir", type=str, default=DATA_DIRECTORY,
-                        help="Path to the directory containing the PASCAL VOC dataset.")
+                        help="Path to the directory containing the data (images or tfci files)")
     parser.add_argument("--restore-from", type=str, default=RESTORE_FROM,
                         help="Where restore model parameters from.")
     parser.add_argument("--save-dir", type=str, default=SAVE_DIRECTORY,
@@ -52,6 +53,9 @@ def get_arguments():
     parser.add_argument("--model", type=str, default=MODEL,
                         help="Model type.")
     parser.add_argument("--num-classes", type=int, default=21, help="Num classes.")
+    parser.add_argument("--rt", action="store_true", help="If using realtime pipeline (rgb images, not tfci)")
+    parser.add_argument("--no-gpu", action="store_true")
+    parser.add_argument("--num-iter", type=int, default=NUM_ITERS, help="Num iterations.")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -69,22 +73,21 @@ def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
 
-    # Create decompressor
+    # Get codec
     sigma = "-sigma" in args.model
-    decompressor = decompressor_for_level(args.level, latent=True, sigma=sigma)
 
-    # Preprocess image
-    #img = tf.placeholder(dtype=tf.float32, shape=(None,None,3))
-    #img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)
-    #input_img = tf.concat(axis=2, values=[img_b, img_g, img_r])
-    #input_img -= IMG_MEAN
-    #input_img = tf.expand_dims(input_img,0)
+    if args.rt:
+        codec = get_model_for_level(args.level, latent=True, sigma=sigma)
+    else:
+        codec = decompressor_for_level(args.level, latent=True, sigma=sigma)
 
-    y_hat = tf.placeholder(dtype=tf.int32, shape=(None,None,192))
+    # Prepare input
+    n_channels = 300 if args.level > 5 else 192
+    y_hat = tf.placeholder(dtype=tf.int32, shape=(None,None,n_channels))
     y_hat = tf.cast(y_hat, tf.float32)
     y_hat = tf.expand_dims(y_hat, 0)
     
-    sigma_hat = tf.placeholder(dtype=tf.int32, shape=(None,None,192))
+    sigma_hat = tf.placeholder(dtype=tf.int32, shape=(None,None,n_channels))
     sigma_hat = tf.cast(sigma_hat, tf.float32)
     sigma_hat = tf.expand_dims(sigma_hat, 0)
 
@@ -110,13 +113,16 @@ def main():
     # Predictions.
     raw_output = net.layers['fc1_voc12']
     dims = tf.shape(raw_output)[1:3,]
-    dims = 16 * dims # get dimensions TODO: this is messy and should be extracted from somewhere else...
+    dims = 16 * dims # get dimensions TODO: this is not the correct way to do this
     raw_output = tf.image.resize_bilinear(raw_output, dims)
     raw_output = tf.argmax(raw_output, dimension=3)
     pred = tf.expand_dims(raw_output, dim=3) # Create 4-d tensor.
 
     # Set up tf session and initialize variables.
-    config = tf.ConfigProto()
+    if args.no_gpu:
+        config = tf.ConfigProto(device_count = {'GPU': 0})
+    else:
+        config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
     init = tf.global_variables_initializer()
@@ -129,9 +135,14 @@ def main():
     if args.restore_from is not None:
         load(loader, sess, args.restore_from)
 
-    # Iterate over tfci files.
-    paths = glob.glob(args.data_dir+"*.tfci")
+    # Iterate over tfci files or images
+    if args.rt:
+        paths = glob.glob(args.data_dir+"*.jpg")
+    else:
+        paths = glob.glob(args.data_dir+"*.tfci")
     paths = sorted(paths)
+    if args.num_iter > 0:
+        paths = paths[:min(args.num_iter,len(paths))]
     print(f"Evaluating {args.model}\'s speed on {len(paths)} images.")
 
     if not os.path.exists(args.save_dir):
@@ -140,31 +151,67 @@ def main():
     times1 = []
     times2 = []
     for i,path in enumerate(paths):
-        start = time.time()
-        latent = extract_latent_from_file(path, decompressor)
-        latent = sess.run(latent)
-        mid = time.time()
-        if not sigma:
-            preds = sess.run(pred, feed_dict={y_hat: latent[0]})
+        if i % 10 == 0:
+            print(f"{i}/{len(paths)}")
+
+        # realtime mode: read image -> encode to y (and sigma) -> inference
+        if args.rt:
+            # read image (not timed)
+            img = tf.image.decode_jpeg(tf.io.read_file(path), channels=3)
+            img = tf.expand_dims(img, 0)
+            img = tf.cast(img, tf.uint8)
+            img = sess.run(img)
+
+            # encode to y (and sigma)
+            t1 = time.time()
+            img = tf.constant(img)
+            latent = sess.run(codec(img))
+            
+            # inference
+            t2 = time.time()
+            if not sigma:
+                preds = sess.run(pred, feed_dict={y_hat: latent[0]})
+            else:
+                preds = sess.run(pred, feed_dict={y_hat: latent[0], sigma_hat: latent[1]})
+
+        # not realtime: read tfci file -> extract y (and sigma) -> inference
         else:
-            preds = sess.run(pred, feed_dict={y_hat: latent[0], sigma_hat: latent[1]})
+            # read tfci file (not timed)
+            with tf.io.gfile.GFile(path, "rb") as f:
+                bitstring = f.read()
+
+            # extract y (and sigma)
+            t1 = time.time()
+            latent = extract_latent_from_bitstring(bitstring, codec)
+            latent = sess.run(latent)
+
+            # inference
+            t2 = time.time()
+            if not sigma:
+                preds = sess.run(pred, feed_dict={y_hat: latent[0]})
+            else:
+                preds = sess.run(pred, feed_dict={y_hat: latent[0], sigma_hat: latent[1]})
+
+        t3 = time.time()
+
+        # DEBUG: save predicted mask
+        # preds = decode_labels(preds, num_classes=args.num_classes)
+        # plt.imsave(args.save_dir+"/"+Path(path).stem+".png", preds[0])
         
-        #preds = decode_labels(preds, num_classes=args.num_classes)
-        #plt.imsave(args.save_dir+"/"+Path(path).stem+".png", preds[0])
-        end = time.time()
-        times1.append(mid - start)
-        times2.append(end - mid)
+        times1.append(t2 - t1)
+        times2.append(t3 - t2)
     
     times1 = np.array(times1)
     times2 = np.array(times2)
     times = times1 + times2
     
-    print(times1.mean(), "+-", times1.std())
-    print(times2.mean(), "+-", times2.std())
-    print(times.mean(), "+-", times.std())
+    print(f"{times1.mean():.3f} {times1.std():.3f}")
+    print(f"{times2.mean():.3f} {times2.std():.3f}")
+    print(f"{times.mean():.3f} {times.std():.3f}")
 
     with open(f'{args.save_dir}/times.txt', 'a') as f:
-        f.write(f'{args.restore_from.split("/")[-1]} {times.mean()} {times.std()}\n')
+        string = f"{times1.mean():.3f} $\\pm$ {times1.std():.3f} & {times2.mean():.3f} $\\pm$ {times2.std():.3f} & {times.mean():.3f} $\\pm$ {times.std():.3f}"
+        f.write(f'{args.restore_from.split("/")[-1]} {args.rt} {string}\n')
 
 if __name__ == '__main__':
     main()

@@ -104,8 +104,6 @@ def decompressor_for_level(level=1, latent=True, sigma=False):
     "side_entropy_model/side_entropy_model_2/compress/TensorArrayStack/TensorArrayGatherV3:0"
     ]
     outputs = [
-        #"synthesis/layer_0/Pad:0"
-        #"entropy_model/entropy_model_3/Cast:0"
         "entropy_model/entropy_model_3/decompress/TensorArrayStack/TensorArrayGatherV3:0" # y_hat
     ]
     if sigma:
