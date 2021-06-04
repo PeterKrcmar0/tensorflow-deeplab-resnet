@@ -70,7 +70,7 @@ def main():
     args = get_arguments()
 
     # Create decompressor
-    sigma = "-h" in args.model
+    sigma = "-sigma" in args.model
     decompressor = decompressor_for_level(args.level, latent=True, sigma=sigma)
 
     # Preprocess image
@@ -90,19 +90,19 @@ def main():
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNet_91({'data': y_hat}, num_classes=args.num_classes)
-    elif args.model == "cResNet39":
-        net = cResNet_39({'data': y_hat}, num_classes=args.num_classes)
+        net = cResNet91({'data': y_hat}, num_classes=args.num_classes)
+    elif args.model == "cResNet40":
+        net = cResNet40({'data': y_hat}, num_classes=args.num_classes)
     elif args.model == "cResNet42":
-        net = cResNet_42({'data': y_hat}, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h":
-        net = cResNet_39_hyper({'y_hat': y_hat, 'sigma_hat': sigma_hat}, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h2":
-        net = cResNet_39_hyper2({'y_hat': y_hat, 'sigma_hat': sigma_hat}, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h3":
-        net = cResNet_39_hyper3({'y_hat': y_hat, 'sigma_hat': sigma_hat}, num_classes=args.num_classes)
+        net = cResNet42({'data': y_hat}, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-conc":
+        net = cResNet_sigma_conc({'y_hat': y_hat, 'sigma_hat': sigma_hat}, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-add":
+        net = cResNet_sigma_add({'y_hat': y_hat, 'sigma_hat': sigma_hat}, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-resblock":
+        net = cResNet_sigma_resblock({'y_hat': y_hat, 'sigma_hat': sigma_hat}, num_classes=args.num_classes)
     else:
-        raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
+        raise Exception("Invalid model")
     
     # Which variables to load.
     restore_var = tf.global_variables()

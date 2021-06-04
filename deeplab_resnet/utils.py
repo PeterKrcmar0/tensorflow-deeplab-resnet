@@ -16,7 +16,7 @@ label_colours = [(0,0,0)
 
 label_colours_bin = [(0,0,0), (255,255,255)]
 
-def decode_labels(mask, num_images=1, num_classes=21):
+def decode_labels(mask, num_images=1, num_classes=21, include=False):
     """Decode batch of segmentation masks.
     
     Args:
@@ -38,6 +38,8 @@ def decode_labels(mask, num_images=1, num_classes=21):
           for k_, k in enumerate(j):
               if k < num_classes:
                   pixels[k_,j_] = palette[k]
+              elif include:
+                  pixels[k_,j_] = (255,255,200) if num_classes > 2 else (128,0,0)
       outputs[i] = np.array(img)
     return outputs
 

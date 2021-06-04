@@ -31,6 +31,7 @@ DATA_DIRECTORY = './VOC2012/tfci/'
 RESTORE_FROM = './deeplab_resnet.ckpt'
 SAVE_DIRECTORY = './output'
 LEVEL = 1
+NUM_ITERS = -1
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -48,6 +49,7 @@ def get_arguments():
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--num-classes", type=int, default=21, help="Num classes.")
+    parser.add_argument("--num-iter", type=int, default=NUM_ITERS, help="Num iterations.")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -104,6 +106,8 @@ def main():
     # Iterate over tfci files.
     paths = glob.glob(args.data_dir+"*.tfci")
     paths = sorted(paths)
+    if args.num_iter > 0:
+        paths = paths[:min(args.num_iter,len(paths))]
     print(f"Evaluating speed on {len(paths)} images.")
 
     if not os.path.exists(args.save_dir):
@@ -112,13 +116,15 @@ def main():
     times1 = []
     times2 = []
     for i,path in enumerate(paths):
+        if i % 100 == 0:
+            print(f"{i}/{len(paths)}")
         start = time.time()
         imgg, = extract_latent_from_file(path, decompressor)
         imgg = sess.run(imgg)
         mid = time.time()
         preds = sess.run(pred, feed_dict={img: imgg[0]})
-        preds = decode_labels(preds, num_classes=args.num_classes)
-        plt.imsave(args.save_dir+"/"+Path(path).stem+".png", preds[0])
+        #preds = decode_labels(preds, num_classes=args.num_classes)
+        #plt.imsave(args.save_dir+"/"+Path(path).stem+".png", preds[0])
         end = time.time()
         times1.append(mid - start)
         times2.append(end - mid)

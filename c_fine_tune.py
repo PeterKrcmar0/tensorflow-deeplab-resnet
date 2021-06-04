@@ -81,7 +81,7 @@ def get_arguments():
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
-                        help="Which model to train (cResNet, cResNet39, resNet).")
+                        help="Which model to train (cResNet, cResNet40, resNet).")
     parser.add_argument("--upscale", action="store_true",
                         help="If the prediction should be upscaled to compute the loss.")
     return parser.parse_args()
@@ -127,7 +127,7 @@ def main():
     coord = tf.train.Coordinator()
     
     # Create compression model.
-    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, sigma= "-h" in args.model)
+    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, sigma= "-sigma" in args.model)
     
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -148,19 +148,19 @@ def main():
     
     # Create network.
     if args.model == "cResNet":
-        net = cResNet_91({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
-    elif args.model == "cResNet39":
-        net = cResNet_39({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+        net = cResNet91({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet40":
+        net = cResNet40({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
     elif args.model == "cResNet42":
-        net = cResNet_42({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h":
-        net = cResNet_39_hyper({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h2":
-        net = cResNet_39_hyper2({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h3":
-        net = cResNet_39_hyper3({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+        net = cResNet42({'data': latent_batch[0]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-conc":
+        net = cResNet_sigma_conc({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-add":
+        net = cResNet_sigma_add({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-resblock":
+        net = cResNet_sigma_resblock({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, is_training=args.is_training, is_training2=args.is_training, num_classes=args.num_classes)
     else:
-        raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
+        raise Exception("Invalid model")
     # For a small batch size, it is better to keep 
     # the statistics of the BN layers (running means and variances)
     # frozen, and to not update the values provided by the pre-trained model. 

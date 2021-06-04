@@ -15,7 +15,7 @@ import time
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import * #cResNetModel, cResNet_39, ImageReader, prepare_label, get_model_for_level
+from deeplab_resnet import * #cResNetModel, cResNet_40, ImageReader, prepare_label, get_model_for_level
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 
@@ -35,7 +35,7 @@ NUM_STEPS = -1
 RESTORE_FROM = './deeplab_resnet.ckpt'
 SAVE_DIRECTORY = './output'
 LEVEL = 1
-MODEL = "cResNet39"
+MODEL = "cResNet40"
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -61,7 +61,7 @@ def get_arguments():
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--model", type=str, default=MODEL,
-                        help="Which model to train (cResNet, cResNet39, resNet).")
+                        help="Which model to train (cResNet, cResNet40, resNet).")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -83,7 +83,7 @@ def main():
     coord = tf.train.Coordinator()
 
     # Create compression model.
-    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, sigma="-h" in args.model)
+    compressor = get_model_for_level(args.level, latent="cResNet" in args.model, sigma="-sigma" in args.model)
 
     # Load reader.
     with tf.name_scope("create_inputs"):
@@ -106,19 +106,19 @@ def main():
 
     # Create network.
     if args.model == "cResNet":
-        net = cResNet_91({'data': latent_batch[0]}, num_classes=args.num_classes)
-    elif args.model == "cResNet39":
-        net = cResNet_39({'data': latent_batch[0]}, num_classes=args.num_classes)
+        net = cResNet91({'data': latent_batch[0]}, num_classes=args.num_classes)
+    elif args.model == "cResNet40":
+        net = cResNet40({'data': latent_batch[0]}, num_classes=args.num_classes)
     elif args.model == "cResNet42":
-        net = cResNet_42({'data': latent_batch[0]}, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h":
-        net = cResNet_39_hyper({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h2":
-        net = cResNet_39_hyper2({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, num_classes=args.num_classes)
-    elif args.model == "cResNet39-h3":
-        net = cResNet_39_hyper3({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, num_classes=args.num_classes)
+        net = cResNet42({'data': latent_batch[0]}, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-conc":
+        net = cResNet_sigma_conc({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-add":
+        net = cResNet_sigma_add({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, num_classes=args.num_classes)
+    elif args.model == "cResNet-sigma-resblock":
+        net = cResNet_sigma_resblock({'y_hat': latent_batch[0], 'sigma_hat': latent_batch[1]}, num_classes=args.num_classes)
     else:
-        raise Exception("Invalid model, must be one of (cResNet, cResNet39, cResNet39-h)")
+        raise Exception("Invalid model")
 
     # Which variables to load.
     restore_var = tf.global_variables()

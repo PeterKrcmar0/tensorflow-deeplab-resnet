@@ -4,7 +4,7 @@ model=$2
 
 if [ $2 -z ]
 then
-model="cResNet39"
+model="cResNet40"
 fi
 
 if [ $1 -z ]

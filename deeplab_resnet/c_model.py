@@ -7,7 +7,7 @@ from kaffe.tensorflow import Network
 import tensorflow as tf
 
 
-class cResNet_93(Network):
+class cResNet93(Network):
      def setup(self, is_training, is_training2, num_classes):
         (self.feed('data')
              .conv(1, 1, 256, 1, 1, biased=False, relu=False, name='correct_channels_branch1')
@@ -390,7 +390,7 @@ class cResNet_93(Network):
 
 
 
-class cResNet_91(Network):
+class cResNet91(Network):
     def setup(self, is_training, is_training2, num_classes):
         '''Network definition.
         
@@ -820,7 +820,7 @@ class cResNet_91(Network):
 
 
 
-class cResNet_39(Network):
+class cResNet40(Network):
     def setup(self, is_training, is_training2, num_classes):
 
         (self.feed('data')
@@ -1011,7 +1011,7 @@ class cResNet_39(Network):
 
 
 
-class cResNet_42(Network):
+class cResNet42(Network):
     def setup(self, is_training, is_training2, num_classes):
 
         (self.feed('data')
@@ -1216,7 +1216,7 @@ class cResNet_42(Network):
 
 
 
-class cResNet_39_hyper(Network):
+class cResNet_sigma_conc(Network):
     def setup(self, is_training, is_training2, num_classes):
 
          # in this case, we have two inputs: "y_hat" and "sigma_hat", both are batches of same dimensions
@@ -1418,7 +1418,7 @@ class cResNet_39_hyper(Network):
 
 
 
-class cResNet_39_hyper2(Network):
+class cResNet_sigma_add(Network):
     def setup(self, is_training, is_training2, num_classes):
 
          # here we do conv + bn in two separate pipelines but we go to 256 channels for both y_hat and sigma_hat
@@ -1620,7 +1620,7 @@ class cResNet_39_hyper2(Network):
 
 
 
-class cResNet_39_hyper3(Network):
+class cResNet_sigma_resblock(Network):
     def setup(self, is_training, is_training2, num_classes):
 
          # here we add a residual block instead of a single convolution layer for both

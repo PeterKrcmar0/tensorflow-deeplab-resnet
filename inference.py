@@ -24,6 +24,7 @@ IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
 NUM_CLASSES = 21
 SAVE_DIR = './output/'
 LEVEL = -1
+DATA_PATH = None
 
 def get_arguments():
     """Parse all the arguments provided from the CLI.
@@ -43,6 +44,8 @@ def get_arguments():
                         help="Where to save predicted mask.")
     parser.add_argument("--level", type=int, default=LEVEL,
                         help="Level of the compression model (1 - 8).")
+    parser.add_argument("--data-path", type=str, help="Path to VOC data.", default=DATA_PATH)
+    parser.add_argument("--no-gpu", action="store_true")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -60,6 +63,9 @@ def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
     
+    if args.data_path is not None:
+        args.img_path = args.data_path + args.img_path
+
     # Prepare image.
     img = tf.image.decode_jpeg(tf.read_file(args.img_path), channels=3)
 
@@ -92,7 +98,10 @@ def main():
 
     
     # Set up TF session and initialize variables. 
-    config = tf.ConfigProto()
+    if args.no_gpu:
+        config = tf.ConfigProto(device_count = {'GPU': 0})
+    else:
+        config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
     init = tf.global_variables_initializer()
@@ -112,9 +121,9 @@ def main():
         os.makedirs(args.save_dir)
     output_file = args.save_dir + Path(args.img_path).stem
     if args.level > 0:
-        output_file += f'_mask_r_{args.level}.png'
+        output_file += f'_mask_anchor2_{args.level}.png'
     else:
-        output_file += '_mask.png'
+        output_file += '_mask_anchor1.png'
     im.save(output_file)
     
     print(f'The output file has been saved to {output_file}')
