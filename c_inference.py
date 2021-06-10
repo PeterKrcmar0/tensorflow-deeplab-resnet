@@ -39,7 +39,7 @@ def get_arguments():
                         help="Path to the image.", default=None)
     parser.add_argument("model_weights", type=str,
                         help="Path to the file with model weights.", default='./deeplab_resnet.ckpt')
-    parser.add_argument("--with-original", action="store_true",
+    parser.add_argument("--save-original", action="store_true",
                         help="If you want to output the original image + mask alongside the predicted mask.")
     parser.add_argument("--num-classes", type=int, default=NUM_CLASSES,
                         help="Number of classes to predict (including background).")
@@ -69,7 +69,7 @@ def main():
     """Create the model and start the evaluation process."""
     args = get_arguments()
 
-    if not args.with_original:
+    if not args.save_original:
         IMG_PATH = ""
         MASK_PATH = ""
     else:
@@ -149,7 +149,7 @@ def main():
     output_file = args.save_dir + file_name + f'_mask_{args.model}_{args.level}.png'
     im.save(output_file)
 
-    if args.with_original:
+    if args.save_original:
         im = Image.open(IMG_PATH + args.img_path)
         im.save(args.save_dir + args.img_path)
 

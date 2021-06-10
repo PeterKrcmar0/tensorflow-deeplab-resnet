@@ -16,7 +16,7 @@ from PIL import Image
 import tensorflow as tf
 import numpy as np
 
-from deeplab_resnet import DeepLabResNetModel, ImageReader, decode_labels, prepare_label, get_model_for_level
+from deeplab_resnet import *
 from pathlib import Path
 
 IMG_MEAN = np.array((104.00698793,116.66876762,122.67891434), dtype=np.float32)
@@ -46,6 +46,7 @@ def get_arguments():
                         help="Level of the compression model (1 - 8).")
     parser.add_argument("--data-path", type=str, help="Path to VOC data (optional), can be specified in img_path.", default=DATA_PATH)
     parser.add_argument("--no-gpu", action="store_true", help="Whether to use GPU or not.")
+    parser.add_argument("--save-original", action="store_true", help="Whether to save original image (or compressed version).")
     return parser.parse_args()
 
 def load(saver, sess, ckpt_path):
@@ -67,19 +68,19 @@ def main():
         args.img_path = args.data_path + args.img_path
 
     # Prepare image.
-    img = tf.image.decode_jpeg(tf.read_file(args.img_path), channels=3)
+    og = tf.image.decode_jpeg(tf.read_file(args.img_path), channels=3)
 
     # Compress and reconstruct if requested.
     if args.level > 0:
         compressor = get_model_for_level(args.level, latent=False)
-        img = tf.cast(img, dtype=tf.uint8)
-        img = tf.expand_dims(img, dim=0)
-        img = compressor(img)[0]
-        img = tf.squeeze(img)
-        img.set_shape((None, None, 3))
+        og = tf.cast(og, dtype=tf.uint8)
+        og = tf.expand_dims(og, dim=0)
+        og = compressor(og)[0]
+        og = tf.squeeze(og)
+        og.set_shape((None, None, 3))
 
     # Convert RGB to BGR.
-    img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=img)
+    img_r, img_g, img_b = tf.split(axis=2, num_or_size_splits=3, value=og)
     img = tf.cast(tf.concat(axis=2, values=[img_b, img_g, img_r]), dtype=tf.float32)
     # Extract mean.
     img -= IMG_MEAN 
@@ -125,8 +126,23 @@ def main():
     else:
         output_file += '_mask_anchor1.png'
     im.save(output_file)
+
+    if args.save_original:
+        if args.level > 0:
+            if og.dtype.is_floating:
+                og = tf.round(og)
+            if og.dtype != tf.uint8:
+                og = tf.saturate_cast(og, tf.uint8)
+        og = sess.run(og)
+        og = Image.fromarray(og)
+        og_file = args.save_dir + Path(args.img_path).stem
+        if args.level > 0:
+            og_file += f'_{args.level}.png'
+        else:
+            og_file += '.jpg'
+        og.save(og_file)
     
-    print(f'The output file has been saved to {output_file}')
+    print(f'The output file has been saved to {args.save_dir}')
 
     
 if __name__ == '__main__':
